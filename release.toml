@@ -1,0 +1,5 @@
+# Single `vX.Y.Z` workspace tag, the format cargo-dist builds from.
+shared-version = true
+tag-name = "v{{version}}"
+dependent-version = "upgrade"
+pre-release-commit-message = "chore: release {{version}}"
