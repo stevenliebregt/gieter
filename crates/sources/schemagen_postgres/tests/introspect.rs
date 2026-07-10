@@ -121,6 +121,8 @@ fn introspects_broad_types_and_cross_schema_references() {
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let metrics = public.tables.iter().find(|t| t.name == "metrics").unwrap();
 
+    assert_eq!(metrics.primary_key, vec!["id".to_string()]);
+
     let ratio = metrics.columns.iter().find(|c| c.name == "ratio").unwrap();
     assert_eq!(
         ratio.ty,

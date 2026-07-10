@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 schemagen_core = { path = "../../schemagen_core" }
 toml.workspace = true
+serde.workspace = true
+convert_case.workspace = true

@@ -1,4 +1,4 @@
-use crate::rows::{ColumnRow, EnumRow, ForeignKeyRow, FromRow, RelationRow};
+use crate::rows::{ColumnRow, EnumRow, ForeignKeyRow, FromRow, PrimaryKeyRow, RelationRow};
 use crate::types::column_type;
 use postgres::{Client, NoTls};
 use schemagen_core::ir::{Catalog, Column, Enum, ForeignKey, Schema, Table, View};
@@ -12,6 +12,7 @@ mod types;
 const QUERY_COLUMNS: &str = include_str!("./queries/columns.sql");
 const QUERY_ENUMS: &str = include_str!("./queries/enums.sql");
 const QUERY_FOREIGN_KEYS: &str = include_str!("./queries/foreign_keys.sql");
+const QUERY_PRIMARY_KEYS: &str = include_str!("./queries/primary_keys.sql");
 const QUERY_RELATIONS: &str = include_str!("./queries/relations.sql");
 
 pub struct PostgresSchemaSource {
@@ -39,9 +40,17 @@ impl SchemaSource for PostgresSchemaSource {
         let enums: Vec<EnumRow> = query(&mut client, QUERY_ENUMS, &self.schemas)?;
         let foreign_keys: Vec<ForeignKeyRow> =
             query(&mut client, QUERY_FOREIGN_KEYS, &self.schemas)?;
+        let primary_keys: Vec<PrimaryKeyRow> =
+            query(&mut client, QUERY_PRIMARY_KEYS, &self.schemas)?;
         let relations: Vec<RelationRow> = query(&mut client, QUERY_RELATIONS, &self.schemas)?;
 
-        Ok(build_catalog(relations, columns, enums, foreign_keys))
+        Ok(build_catalog(
+            relations,
+            columns,
+            enums,
+            foreign_keys,
+            primary_keys,
+        ))
     }
 }
 
@@ -51,10 +60,12 @@ fn build_catalog(
     columns: Vec<ColumnRow>,
     enums: Vec<EnumRow>,
     foreign_keys: Vec<ForeignKeyRow>,
+    primary_keys: Vec<PrimaryKeyRow>,
 ) -> Catalog {
     let mut columns_by_table = columns_by_table(columns);
     let enums_by_schema = enums_by_schema(enums);
     let mut foreign_keys_by_table = foreign_keys_by_table(foreign_keys);
+    let mut primary_keys_by_table = primary_keys_by_table(primary_keys);
 
     let mut schemas: HashMap<String, Schema> = HashMap::new();
 
@@ -72,6 +83,7 @@ fn build_catalog(
                 name: relation.name,
                 schema: relation.schema,
                 columns,
+                primary_key: primary_keys_by_table.remove(&key).unwrap_or_default(),
                 foreign_keys: foreign_keys_by_table.remove(&key).unwrap_or_default(),
                 comment: relation.comment,
             }),
@@ -162,6 +174,21 @@ fn enums_by_schema(enums: Vec<EnumRow>) -> HashMap<String, Vec<Enum>> {
     }
 
     enums_by_table
+}
+
+/// Groups primary-key columns by (schema, table). Each table has at most one primary key.
+fn primary_keys_by_table(
+    primary_keys: Vec<PrimaryKeyRow>,
+) -> HashMap<(String, String), Vec<String>> {
+    primary_keys
+        .into_iter()
+        .map(|primary_key| {
+            (
+                (primary_key.schema, primary_key.table_name),
+                primary_key.columns,
+            )
+        })
+        .collect()
 }
 
 /// Groups foreign keys by (schema, table) and identifies their shape.

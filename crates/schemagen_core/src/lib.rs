@@ -6,6 +6,7 @@ pub mod emitter;
 pub mod ir;
 pub mod pipeline;
 pub mod source;
+pub mod writer;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

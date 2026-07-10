@@ -103,8 +103,74 @@ fn filter_excluded(catalog: &mut Catalog, patterns: &[String]) -> Result<(), Err
         .map_err(|_| Error::BadGlob(patterns.join(",")))?;
 
     for schema in &mut catalog.schemas {
-        schema.tables.retain(|table| !set.is_match(&table.name));
+        let schema_name = schema.name.clone();
+        schema.tables.retain(|table| {
+            // Match the bare name (excludes across all schemas) or the `schema.table`
+            // qualified name (targets one schema).
+            let qualified = format!("{schema_name}.{}", table.name);
+            !(set.is_match(&table.name) || set.is_match(&qualified))
+        });
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir::{Schema, Table};
+
+    fn table(name: &str) -> Table {
+        Table {
+            name: name.into(),
+            schema: String::new(),
+            columns: vec![],
+            primary_key: vec![],
+            foreign_keys: vec![],
+            comment: None,
+        }
+    }
+
+    fn catalog() -> Catalog {
+        Catalog {
+            schemas: vec![
+                Schema {
+                    name: "public".into(),
+                    tables: vec![table("user"), table("post")],
+                    enums: vec![],
+                    views: vec![],
+                },
+                Schema {
+                    name: "auth".into(),
+                    tables: vec![table("user")],
+                    enums: vec![],
+                    views: vec![],
+                },
+            ],
+        }
+    }
+
+    fn qualified(catalog: &Catalog) -> Vec<String> {
+        let mut names = Vec::new();
+        for schema in &catalog.schemas {
+            for table in &schema.tables {
+                names.push(format!("{}.{}", schema.name, table.name));
+            }
+        }
+        names
+    }
+
+    #[test]
+    fn a_schema_qualified_exclude_targets_one_schema() {
+        let mut catalog = catalog();
+        filter_excluded(&mut catalog, &["public.user".into()]).unwrap();
+        assert_eq!(qualified(&catalog), ["public.post", "auth.user"]);
+    }
+
+    #[test]
+    fn a_bare_exclude_matches_every_schema() {
+        let mut catalog = catalog();
+        filter_excluded(&mut catalog, &["user".into()]).unwrap();
+        assert_eq!(qualified(&catalog), ["public.post"]);
+    }
 }

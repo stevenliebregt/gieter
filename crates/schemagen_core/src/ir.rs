@@ -28,6 +28,7 @@ pub struct Table {
     pub name: String,
     pub schema: String,
     pub columns: Vec<Column>,
+    pub primary_key: Vec<String>,
     pub foreign_keys: Vec<ForeignKey>,
     pub comment: Option<String>,
 }
@@ -88,6 +89,31 @@ pub enum ScalarType {
         precision: Option<u32>,
     }, // timestamptz when tz is true
     Other(String), // native type name for anything off the list
+}
+
+impl ScalarType {
+    /// A stable, language-neutral key naming this scalar family. Shared by emitters to use in
+    /// configs. Other(name) returns the plain backend type.
+    pub fn key(&self) -> &str {
+        match self {
+            ScalarType::Boolean => "boolean",
+            ScalarType::Int16 => "int16",
+            ScalarType::Int32 => "int32",
+            ScalarType::Int64 => "int64",
+            ScalarType::Float32 => "float32",
+            ScalarType::Float64 => "float64",
+            ScalarType::Decimal { .. } => "decimal",
+            ScalarType::Char { .. } => "char",
+            ScalarType::Text { .. } => "text",
+            ScalarType::Uuid => "uuid",
+            ScalarType::Json => "json",
+            ScalarType::Bytes => "bytes",
+            ScalarType::Date => "date",
+            ScalarType::Time { .. } => "time",
+            ScalarType::Timestamp { .. } => "timestamp",
+            ScalarType::Other(name) => name,
+        }
+    }
 }
 
 #[derive(Debug)]

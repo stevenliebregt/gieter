@@ -3,4 +3,12 @@ name = "schemagen_cli"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "schemagen"
+path = "src/main.rs"
+
 [dependencies]
+schemagen_core = { path = "../schemagen_core" }
+schemagen_postgres = { path = "../sources/schemagen_postgres" }
+schemagen_typescript = { path = "../emitters/schemagen_typescript" }
+clap.workspace = true

@@ -99,3 +99,20 @@ impl FromRow for ForeignKeyRow {
         }
     }
 }
+
+#[derive(Debug)]
+pub(crate) struct PrimaryKeyRow {
+    pub(crate) schema: String,
+    pub(crate) table_name: String,
+    pub(crate) columns: Vec<String>,
+}
+
+impl FromRow for PrimaryKeyRow {
+    fn from_row(row: &Row) -> Self {
+        PrimaryKeyRow {
+            schema: row.get("schema"),
+            table_name: row.get("table_name"),
+            columns: row.get("columns"),
+        }
+    }
+}
