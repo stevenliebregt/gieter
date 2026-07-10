@@ -54,10 +54,16 @@ pub fn run(
             .get(&emitter_config.ty)
             .ok_or_else(|| Error::UnknownEmitter(emitter_config.ty.clone()))?;
 
-        let base_dir = emitter_config
+        let out_dir = emitter_config
             .out_dir
             .clone()
             .unwrap_or_else(|| PathBuf::from("."));
+
+        let base_dir = if out_dir.is_absolute() {
+            out_dir
+        } else {
+            config.base_dir.join(out_dir)
+        };
 
         let output = emitter.emit(&catalog, &emitter_config.options)?;
 

@@ -20,6 +20,9 @@ pub struct Config {
     pub database: DatabaseConfig,
     #[serde(default, rename = "emitter")]
     pub emitters: Vec<EmitterConfig>,
+    /// Directory the config was loaded from; relative output dirs resolve against it.
+    #[serde(skip)]
+    pub base_dir: PathBuf,
 }
 
 impl Config {
@@ -32,7 +35,11 @@ impl Config {
             path: path.display().to_string(),
             source,
         })?;
-        Config::from_toml_str(&str)
+        let mut config = Config::from_toml_str(&str)?;
+        if let Some(parent) = path.parent() {
+            config.base_dir = parent.to_path_buf();
+        }
+        Ok(config)
     }
 
     pub fn resolve_env(&mut self) -> Result<(), ConfigError> {
