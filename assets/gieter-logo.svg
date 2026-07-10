@@ -1,0 +1,61 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d9488"/>
+      <stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="120" fill="url(#bg)"/>
+
+  <!-- ===== INPUT: generic database cylinder (top-left) ===== -->
+  <g>
+    <!-- body -->
+    <path d="M86 120 L86 182 A46 14 0 0 0 178 182 L178 120 Z" fill="#f8fafc"/>
+    <!-- row divider arcs -->
+    <path d="M86 141 A46 14 0 0 0 178 141" fill="none" stroke="#94a3b8" stroke-width="3"/>
+    <path d="M86 162 A46 14 0 0 0 178 162" fill="none" stroke="#94a3b8" stroke-width="3"/>
+    <!-- outline -->
+    <path d="M86 120 L86 182 A46 14 0 0 0 178 182 L178 120" fill="none" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+    <!-- top: filled with 'data' -->
+    <ellipse cx="132" cy="120" rx="46" ry="14" fill="#38bdf8" stroke="#1e293b" stroke-width="5"/>
+  </g>
+
+  <!-- ===== FLOW: data streams from the DB into the can ===== -->
+  <path d="M150 112 C205 70 250 96 238 232" fill="none" stroke="#38bdf8" stroke-width="16" stroke-linecap="round"/>
+  <path d="M150 112 C205 70 250 96 238 232" fill="none" stroke="#7dd3fc" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- ===== gieter (center) ===== -->
+  <!-- handle -->
+  <path d="M182 250 C197 182 281 182 296 250" fill="none" stroke="#1e293b" stroke-width="16" stroke-linecap="round"/>
+  <!-- spout -->
+  <path d="M300 300 C336 306 372 322 396 352" fill="none" stroke="#1e293b" stroke-width="24" stroke-linecap="round"/>
+  <!-- body -->
+  <rect x="170" y="248" width="138" height="130" rx="24" fill="#f8fafc"/>
+  <ellipse cx="239" cy="248" rx="72" ry="14" fill="#cbd5e1"/>
+  <rect x="186" y="266" width="14" height="90" rx="7" fill="#e2e8f0"/>
+  <!-- face -->
+  <circle cx="214" cy="300" r="8" fill="#1e293b"/>
+  <circle cx="258" cy="300" r="8" fill="#1e293b"/>
+  <circle cx="211" cy="297" r="3" fill="#f8fafc"/>
+  <circle cx="255" cy="297" r="3" fill="#f8fafc"/>
+  <path d="M220 322 Q237 335 254 322" fill="none" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- ===== OUTPUT: code pours from the spout ===== -->
+  <g transform="rotate(8 424 388)">
+    <rect x="398" y="372" width="52" height="32" rx="11" fill="#f8fafc"/>
+    <text x="424" y="394" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="20" font-weight="700" fill="#0f766e" text-anchor="middle">{ }</text>
+  </g>
+  <g transform="rotate(-7 392 424)">
+    <rect x="374" y="410" width="36" height="30" rx="11" fill="#f8fafc"/>
+    <text x="392" y="431" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="20" font-weight="700" fill="#0f766e" text-anchor="middle">;</text>
+  </g>
+  <g transform="rotate(10 430 452)">
+    <rect x="402" y="438" width="56" height="30" rx="11" fill="#f8fafc"/>
+    <text x="430" y="459" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="17" font-weight="700" fill="#0f766e" text-anchor="middle">&lt;/&gt;</text>
+  </g>
+
+  <!-- sprout -->
+  <path d="M360 486 C360 468 360 462 362 454" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
+  <ellipse cx="346" cy="462" rx="16" ry="9" fill="#22c55e" transform="rotate(-35 346 462)"/>
+  <ellipse cx="378" cy="456" rx="16" ry="9" fill="#4ade80" transform="rotate(32 378 456)"/>
+</svg>

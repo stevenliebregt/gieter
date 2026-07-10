@@ -1,0 +1,19 @@
+[package]
+name = "gieter_postgres"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "PostgreSQL schema source for the gieter code generator"
+keywords = ["codegen", "schema", "postgres"]
+categories = ["development-tools"]
+
+[dependencies]
+gieter_core = { path = "../../gieter_core", version = "0.1.0" }
+postgres = { workspace = true }
+
+[dev-dependencies]
+testcontainers = { workspace = true }
+testcontainers-modules = { workspace = true }

@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "crates/schemagen_cli",
-    "crates/schemagen_core",
-    "crates/sources/schemagen_postgres",
-    "crates/emitters/schemagen_typescript",
+    "crates/gieter_cli",
+    "crates/gieter_core",
+    "crates/sources/gieter_postgres",
+    "crates/emitters/gieter_typescript",
 ]
 resolver = "2"
 
@@ -11,7 +11,7 @@ resolver = "2"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/stevenliebregt/schemagen"
+repository = "https://github.com/stevenliebregt/gieter"
 authors = ["Steven Liebregt <s.liebregt@outlook.com>"]
 rust-version = "1.85"
 

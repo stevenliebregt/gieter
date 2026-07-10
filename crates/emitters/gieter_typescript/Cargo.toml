@@ -1,0 +1,17 @@
+[package]
+name = "gieter_typescript"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "TypeScript emitter for the gieter code generator"
+keywords = ["codegen", "schema", "typescript"]
+categories = ["development-tools"]
+
+[dependencies]
+gieter_core = { path = "../../gieter_core", version = "0.1.0" }
+toml.workspace = true
+serde.workspace = true
+convert_case.workspace = true

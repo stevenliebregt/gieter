@@ -1,0 +1,11 @@
+# Minimal gieter config for the plain TypeScript emitter.
+# Everything not set here uses the emitter's defaults.
+
+[database]
+url = "postgres://user:password@localhost:5432/app"
+schemas = ["public"]
+
+[[emitter]]
+type = "typescript"
+out_dir = "src/db"
+output = "schema.ts"

@@ -1,0 +1,41 @@
+# Full gieter config for the plain TypeScript emitter.
+
+[database]
+url = "env:DATABASE_URL"
+schemas = ["public", "auth"]
+exclude_tables = ["pgmigrations", "*_audit"]
+
+[[emitter]]
+type = "typescript"
+out_dir = "src/generated"
+
+# Rendering options (values here differ from the defaults to show the alternatives).
+type_style = "type"        # default "interface"
+enum_style = "const"       # default "union"; also "enum"
+property_case = "camel"    # default "preserve"; also "snake"
+null_style = "optional"    # default "union" (T | null)
+comments = true            # JSDoc from table/column comments
+
+# Branding: nominal id types for primary/foreign keys.
+[emitter.brand]
+enabled = true
+extra = ["accounts.owner_ref"]   # brand columns that are not detected as PK/FK
+
+# Scalar type overrides. Keys are neutral ScalarType names; `Other(x)` types use
+# their raw backend name. An `import` is hoisted into any file that uses the type.
+[emitter.types.uuid]
+ts = "UUID"
+import = "import type { UUID } from './uuid';"
+
+[emitter.types.timestamp]
+ts = "Date"
+
+[emitter.types.date]
+ts = "Date"
+
+# Split output: enums and brands get their own files, everything else falls to db.ts.
+# Kinds sharing a filename are combined; `default` catches any kind not listed.
+[emitter.output]
+enums = "enums.ts"
+brands = "brands.ts"
+default = "db.ts"

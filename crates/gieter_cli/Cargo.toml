@@ -1,0 +1,21 @@
+[package]
+name = "gieter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Command-line code generator that turns database schemas into typed source code"
+keywords = ["codegen", "schema", "postgres", "typescript", "cli"]
+categories = ["development-tools", "command-line-utilities"]
+
+[[bin]]
+name = "gieter"
+path = "src/main.rs"
+
+[dependencies]
+gieter_core = { path = "../gieter_core", version = "0.1.0" }
+gieter_postgres = { path = "../sources/gieter_postgres", version = "0.1.0" }
+gieter_typescript = { path = "../emitters/gieter_typescript", version = "0.1.0" }
+clap.workspace = true
