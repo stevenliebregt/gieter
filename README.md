@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/gieter-logo.svg" alt="gieter" width="140" height="140">
+  <img src="https://raw.githubusercontent.com/stevenliebregt/gieter/HEAD/assets/gieter-logo.svg" alt="gieter" width="140" height="140">
 
   <h1>gieter</h1>
 
