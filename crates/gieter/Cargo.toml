@@ -7,6 +7,7 @@ repository.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 description = "Command-line code generator that turns database schemas into typed source code"
+readme = "../../README.md"
 keywords = ["codegen", "schema", "postgres", "typescript", "cli"]
 categories = ["development-tools", "command-line-utilities"]
 
