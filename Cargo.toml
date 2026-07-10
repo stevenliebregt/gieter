@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/gieter_cli",
+    "crates/gieter",
     "crates/gieter_core",
     "crates/sources/gieter_postgres",
     "crates/emitters/gieter_typescript",

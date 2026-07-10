@@ -47,7 +47,7 @@ Or build from source:
 ```sh
 git clone https://github.com/stevenliebregt/gieter
 cd gieter
-cargo install --path crates/gieter_cli
+cargo install --path crates/gieter
 ```
 
 ## Quick start
