@@ -1,0 +1,8 @@
+[package]
+name = "schemagen_postgres"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+schemagen_core = { path = "../../schemagen_core" }
+postgres = { workspace = true }
