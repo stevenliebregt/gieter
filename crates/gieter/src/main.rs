@@ -5,8 +5,13 @@ use gieter_postgres::PostgresSource;
 use gieter_typescript::TypescriptEmitter;
 use std::path::PathBuf;
 
+/// Pour your database schema in, get typed code out.
+///
+/// gieter introspects a live database and generates typed source code from its
+/// schema, driven by a TOML config that describes the database connection and
+/// the emitters to run.
 #[derive(Parser)]
-#[command(name = "gieter")]
+#[command(name = "gieter", version)]
 struct Cli {
     /// Path to the TOML config file
     #[arg(short, long, default_value = "gieter.toml")]
