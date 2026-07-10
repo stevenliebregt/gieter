@@ -13,3 +13,5 @@ toml = "1"
 thiserror = "2"
 postgres = "0.19"
 globset = "0.4"
+testcontainers = { version = "0.27", features = ["blocking"] }
+testcontainers-modules = { version = "0.15", features = ["postgres"] }

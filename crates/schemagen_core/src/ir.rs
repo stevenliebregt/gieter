@@ -12,6 +12,17 @@ pub struct Schema {
     // TODO: composite/domain types
 }
 
+impl Schema {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            tables: vec![],
+            enums: vec![],
+            views: vec![],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Table {
     pub name: String,
@@ -37,7 +48,7 @@ pub struct Column {
     pub comment: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ColumnType {
     Scalar(ScalarType),
     Array(Box<ColumnType>),
@@ -47,7 +58,7 @@ pub enum ColumnType {
 
 /// Backend-neutral scalar types. Each SchemaSource maps its native type names onto these;
 /// anything outside the common set falls through to Other(String).
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ScalarType {
     Boolean,
     Int16,   // smallint / int2
@@ -81,6 +92,7 @@ pub enum ScalarType {
 
 #[derive(Debug)]
 pub struct ForeignKey {
+    pub name: String,
     pub columns: Vec<String>,
     pub ref_table: (String, String), // schema name, table name
     pub ref_columns: Vec<String>,

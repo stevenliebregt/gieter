@@ -9,9 +9,9 @@ SELECT
     NOT a.attnotnull AS nullable,
     a.atttypmod AS typmod, -- numeric precision/scale, varchar/char length, time precision
     t.typname AS udt, -- int4, text, _int4 (array), mood (enum)
-    t.typtype AS typtype, -- 'e'=enum, 'b'=base, 'c'=composite, 'd'=domain
+    t.typtype::text AS typtype, -- 'e'=enum, 'b'=base, 'c'=composite, 'd'=domain
     et.typname AS elem_udt, -- element udt when t is an array
-    ett.typtype AS elem_typtype,
+    ett.typtype::text AS elem_typtype,
     tn.nspname AS type_schema,
     col_description(a.attrelid, a.attnum) AS comment
 FROM
@@ -27,8 +27,4 @@ WHERE
     n.nspname = ANY ($1)
     AND c.relkind IN ('r', 'p', 'v', 'm')
     AND a.attnum > 0
-    AND NOT a.attisdropped
-ORDER BY
-    n.nspname,
-    c.relname,
-    a.attname;
+    AND NOT a.attisdropped;

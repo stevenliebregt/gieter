@@ -6,3 +6,7 @@ edition = "2024"
 [dependencies]
 schemagen_core = { path = "../../schemagen_core" }
 postgres = { workspace = true }
+
+[dev-dependencies]
+testcontainers = { workspace = true }
+testcontainers-modules = { workspace = true }

@@ -4,7 +4,7 @@
 SELECT
     n.nspname AS schema,
     c.relname AS name,
-    c.relkind AS kind,
+    c.relkind::text AS kind,
     obj_description(c.oid) AS comment
 FROM
     pg_class c
