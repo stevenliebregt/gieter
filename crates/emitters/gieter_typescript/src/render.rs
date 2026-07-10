@@ -1,6 +1,6 @@
 use crate::TypescriptEmitter;
 use crate::brand::Brands;
-use crate::naming::{enum_member, property_name};
+use crate::naming::{enum_member, object_key, property_name};
 use crate::options::{EnumStyle, NullStyle, Options, Output, TypeStyle};
 use crate::typemap;
 use convert_case::{Case, Casing};
@@ -300,8 +300,17 @@ fn render_enum(enum_definition: &Enum, options: &Options) -> String {
         }
         EnumStyle::Enum => {
             writer.block(&format!("export enum {name} {{"), "}", |writer| {
+                let mut used: BTreeSet<String> = BTreeSet::new();
                 for value in &enum_definition.values {
-                    writer.line(&format!("{} = \"{value}\",", enum_member(value)));
+                    let base = enum_member(value);
+                    let mut member = base.clone();
+                    let mut suffix = 2;
+                    while used.contains(&member) {
+                        member = format!("{base}{suffix}");
+                        suffix += 1;
+                    }
+                    used.insert(member.clone());
+                    writer.line(&format!("{member} = \"{value}\","));
                 }
             });
         }
@@ -311,7 +320,7 @@ fn render_enum(enum_definition: &Enum, options: &Options) -> String {
                 "} as const;",
                 |writer| {
                     for value in &enum_definition.values {
-                        writer.line(&format!("{}: \"{value}\",", enum_member(value)));
+                        writer.line(&format!("{}: \"{value}\",", object_key(value)));
                     }
                 },
             );
@@ -396,6 +405,71 @@ mod tests {
                 views: vec![],
             }],
         }
+    }
+
+    #[test]
+    fn const_enum_quotes_labels_that_are_not_valid_identifiers() {
+        let catalog = one_schema(
+            vec![],
+            vec![Enum {
+                name: "status".into(),
+                schema: "public".into(),
+                values: vec![
+                    "active".into(),
+                    "2fa".into(),
+                    "multi word".into(),
+                    "has-dash".into(),
+                ],
+            }],
+        );
+        let opts = Options {
+            enum_style: EnumStyle::Const,
+            ..Default::default()
+        };
+        let contents = &render(&catalog, &opts).unwrap().files[0].contents;
+
+        // Valid identifiers stay bare; everything else is quoted, and the key
+        // always mirrors the label so the value and key never diverge.
+        assert!(contents.contains("  active: \"active\",\n"));
+        assert!(contents.contains("  \"2fa\": \"2fa\",\n"));
+        assert!(contents.contains("  \"multi word\": \"multi word\",\n"));
+        assert!(contents.contains("  \"has-dash\": \"has-dash\",\n"));
+        // The old PascalCased, unquoted (and sometimes invalid) keys are gone.
+        assert!(!contents.contains("2Fa"));
+        assert!(!contents.contains("MultiWord"));
+        assert!(!contents.contains("HasDash"));
+    }
+
+    #[test]
+    fn enum_style_sanitizes_member_names_and_disambiguates_collisions() {
+        let catalog = one_schema(
+            vec![],
+            vec![Enum {
+                name: "status".into(),
+                schema: "public".into(),
+                values: vec![
+                    "active".into(),
+                    "2fa".into(),
+                    "has-dash".into(),
+                    "multi word".into(),
+                    "multi-word".into(),
+                ],
+            }],
+        );
+        let opts = Options {
+            enum_style: EnumStyle::Enum,
+            ..Default::default()
+        };
+        let contents = &render(&catalog, &opts).unwrap().files[0].contents;
+
+        // Valid identifiers are preserved; a leading digit gets a `_` prefix.
+        assert!(contents.contains("  active = \"active\",\n"));
+        assert!(contents.contains("  _2Fa = \"2fa\",\n"));
+        assert!(contents.contains("  HasDash = \"has-dash\",\n"));
+        // "multi word" and "multi-word" both PascalCase to MultiWord; the second
+        // is disambiguated with a numeric suffix.
+        assert!(contents.contains("  MultiWord = \"multi word\",\n"));
+        assert!(contents.contains("  MultiWord2 = \"multi-word\",\n"));
     }
 
     fn branded() -> Options {

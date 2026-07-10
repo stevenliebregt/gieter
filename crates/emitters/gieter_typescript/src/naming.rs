@@ -10,12 +10,29 @@ pub fn property_name(name: &str, case: &PropertyCase) -> String {
 }
 
 /// Member identifier for an enum value: kept as-is when it is already a valid identifier
-/// (so SCREAMING_CASE survives), otherwise PascalCased from a sanitized form.
+/// (so SCREAMING_CASE survives), otherwise PascalCased. A leading digit or an empty
+/// result is prefixed with `_` so the name is always a valid identifier. Callers are
+/// responsible for de-duplicating names that collide.
 pub fn enum_member(value: &str) -> String {
-    if is_identifier(value) {
+    let base = if is_identifier(value) {
         value.to_string()
     } else {
         value.to_case(Case::Pascal)
+    };
+    match base.chars().next() {
+        Some(first) if first.is_ascii_alphabetic() || first == '_' => base,
+        _ => format!("_{base}"),
+    }
+}
+
+/// An object-literal key for an enum label: bare when the label is already a
+/// valid identifier, quoted otherwise so labels with spaces, dashes, or a
+/// leading digit stay valid TypeScript. The key always mirrors the label.
+pub fn object_key(label: &str) -> String {
+    if is_identifier(label) {
+        label.to_string()
+    } else {
+        format!("\"{label}\"")
     }
 }
 
