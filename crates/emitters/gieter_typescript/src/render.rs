@@ -59,6 +59,23 @@ pub fn render(catalog: &Catalog, options: &Options) -> Result<EmitterOutput, Emi
             );
         }
 
+        for composite in &schema.composites {
+            let file = target_file(&options.output, "composites")?;
+            let mut imports = Vec::new();
+            let name = composite.name.to_case(Case::Pascal);
+            let declaration =
+                render_object(&name, &composite.fields, &None, options, &mut imports, None);
+            push(&mut files, file, declaration, imports);
+        }
+
+        for domain in &schema.domains {
+            let file = target_file(&options.output, "domains")?;
+            let mut imports = Vec::new();
+            let base_ts = column_ts(&domain.base, options, &mut imports);
+            let name = domain.name.to_case(Case::Pascal);
+            push(&mut files, file, render_brand(&name, &base_ts), imports);
+        }
+
         for table in &schema.tables {
             let file = target_file(&options.output, "tables")?;
             let mut imports = Vec::new();
@@ -260,8 +277,8 @@ fn module_specifier(file: &str) -> String {
     format!("./{}", file.strip_suffix(".ts").unwrap_or(file))
 }
 
-/// The TypeScript type for a column, wrapping arrays and collecting any imports the
-/// scalar override needs. Enum references resolve to the enum's PascalCase type name.
+/// The TypeScript type for a column, wrapping arrays and collecting any imports the scalar override
+/// needs. Enum, composite and domain references resolve to the type's PascalCase name.
 fn column_ts(ty: &ColumnType, options: &Options, imports: &mut Vec<String>) -> String {
     match ty {
         ColumnType::Scalar(scalar) => {
@@ -273,7 +290,8 @@ fn column_ts(ty: &ColumnType, options: &Options, imports: &mut Vec<String>) -> S
         }
         ColumnType::Array(inner) => format!("{}[]", column_ts(inner, options, imports)),
         ColumnType::Enum { name, .. } => name.to_case(Case::Pascal),
-        _ => todo!("Implement ty: {ty:?}"),
+        ColumnType::Composite { name, .. } => name.to_case(Case::Pascal),
+        ColumnType::Domain { name, .. } => name.to_case(Case::Pascal),
     }
 }
 
@@ -374,7 +392,7 @@ impl FileContents {
 mod tests {
     use super::*;
     use crate::options::{BrandOptions, TypeOverride};
-    use gieter_core::ir::{ScalarType, Schema, Table};
+    use gieter_core::ir::{Composite, Domain, ScalarType, Schema, Table};
     use std::collections::BTreeMap;
 
     fn column(name: &str, ty: ColumnType, nullable: bool) -> Column {
@@ -774,6 +792,123 @@ mod tests {
             brands
                 .contents
                 .contains("export type BooksId = number & { readonly __brand: 'BooksId' };")
+        );
+    }
+
+    fn one_schema_with(schema: Schema) -> Catalog {
+        Catalog {
+            schemas: vec![schema],
+        }
+    }
+
+    #[test]
+    fn renders_a_composite_type_as_an_interface() {
+        let catalog = one_schema_with(Schema {
+            name: "public".into(),
+            composites: vec![Composite {
+                name: "address".into(),
+                schema: "public".into(),
+                fields: vec![
+                    column(
+                        "street",
+                        ColumnType::Scalar(ScalarType::Text { max_len: None }),
+                        true,
+                    ),
+                    column("number", ColumnType::Scalar(ScalarType::Int32), true),
+                ],
+            }],
+            ..Default::default()
+        });
+
+        let contents = &render(&catalog, &Options::default()).unwrap().files[0].contents;
+        assert!(contents.contains("export interface Address {"));
+        assert!(contents.contains("street: string | null;"));
+        assert!(contents.contains("number: number | null;"));
+    }
+
+    #[test]
+    fn renders_a_domain_type_as_a_brand() {
+        let catalog = one_schema_with(Schema {
+            name: "public".into(),
+            domains: vec![Domain {
+                name: "email".into(),
+                schema: "public".into(),
+                base: ColumnType::Scalar(ScalarType::Text { max_len: None }),
+                not_null: false,
+                default: None,
+            }],
+            ..Default::default()
+        });
+
+        let contents = &render(&catalog, &Options::default()).unwrap().files[0].contents;
+        assert!(contents.contains("export type Email = string & { readonly __brand: 'Email' };"));
+    }
+
+    #[test]
+    fn columns_reference_composite_and_domain_types_by_name() {
+        let catalog = one_schema_with(Schema {
+            name: "public".into(),
+            tables: vec![Table {
+                name: "people".into(),
+                schema: "public".into(),
+                columns: vec![
+                    column(
+                        "home",
+                        ColumnType::Composite {
+                            schema: "public".into(),
+                            name: "address".into(),
+                        },
+                        true,
+                    ),
+                    column(
+                        "contact",
+                        ColumnType::Domain {
+                            schema: "public".into(),
+                            name: "email".into(),
+                        },
+                        true,
+                    ),
+                ],
+                primary_key: vec![],
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+
+        let contents = &render(&catalog, &Options::default()).unwrap().files[0].contents;
+        assert!(contents.contains("home: Address | null;"));
+        assert!(contents.contains("contact: Email | null;"));
+    }
+
+    #[test]
+    fn a_domain_over_an_overridden_scalar_wraps_it_and_hoists_the_import() {
+        let catalog = one_schema_with(Schema {
+            name: "public".into(),
+            domains: vec![Domain {
+                name: "account_id".into(),
+                schema: "public".into(),
+                base: ColumnType::Scalar(ScalarType::Uuid),
+                not_null: false,
+                default: None,
+            }],
+            ..Default::default()
+        });
+
+        let options = Options {
+            types: BTreeMap::from([(
+                "uuid".to_string(),
+                TypeOverride {
+                    ts: "UUID".into(),
+                    import: Some("import type { UUID } from './uuid';".into()),
+                },
+            )]),
+            ..Default::default()
+        };
+
+        let contents = &render(&catalog, &options).unwrap().files[0].contents;
+        assert!(contents.contains("import type { UUID } from './uuid';"));
+        assert!(
+            contents.contains("export type AccountId = UUID & { readonly __brand: 'AccountId' };")
         );
     }
 }
