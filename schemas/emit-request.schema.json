@@ -1,0 +1,695 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EmitRequest",
+  "type": "object",
+  "properties": {
+    "catalog": {
+      "$ref": "#/$defs/Catalog"
+    },
+    "ir_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "options": true
+  },
+  "required": [
+    "ir_version",
+    "catalog",
+    "options"
+  ],
+  "$defs": {
+    "Catalog": {
+      "type": "object",
+      "properties": {
+        "schemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Schema"
+          }
+        }
+      },
+      "required": [
+        "schemas"
+      ]
+    },
+    "Column": {
+      "type": "object",
+      "properties": {
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "ty": {
+          "$ref": "#/$defs/ColumnType"
+        }
+      },
+      "required": [
+        "name",
+        "ty",
+        "nullable"
+      ]
+    },
+    "ColumnType": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "scalar"
+            },
+            "value": {
+              "$ref": "#/$defs/ScalarType"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "array"
+            },
+            "value": {
+              "$ref": "#/$defs/ColumnType"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "enum"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "schema",
+                "name"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "composite"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "schema",
+                "name"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "domain"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "schema",
+                "name"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        }
+      ]
+    },
+    "Composite": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "schema",
+        "fields"
+      ]
+    },
+    "Domain": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/ColumnType"
+        },
+        "default": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "not_null": {
+          "type": "boolean"
+        },
+        "schema": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "schema",
+        "base",
+        "not_null"
+      ]
+    },
+    "Enum": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "schema",
+        "values"
+      ]
+    },
+    "ForeignKey": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "ref_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ref_table": {
+          "type": "array",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "columns",
+        "ref_table",
+        "ref_columns"
+      ]
+    },
+    "ScalarType": {
+      "description": "Backend-neutral scalar types. Each Source maps its native type names onto these;\nanything outside the common set falls through to Other(String).",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "boolean"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "int16"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "int32"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "int64"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "float32"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "float64"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "decimal"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "precision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint32",
+                  "minimum": 0
+                },
+                "scale": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "char"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "len": {
+                  "type": "integer",
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "len"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "text"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "max_len": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "uuid"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "json"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "bytes"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "date"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "time"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "precision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint32",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "timestamp"
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "precision": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint32",
+                  "minimum": 0
+                },
+                "tz": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "tz"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "other"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ]
+        }
+      ]
+    },
+    "Schema": {
+      "type": "object",
+      "properties": {
+        "composites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Composite"
+          }
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Domain"
+          }
+        },
+        "enums": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Enum"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Table"
+          }
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/View"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "tables",
+        "enums",
+        "views",
+        "composites",
+        "domains"
+      ]
+    },
+    "Table": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "foreign_keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ForeignKey"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "primary_key": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schema": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "schema",
+        "columns",
+        "primary_key",
+        "foreign_keys"
+      ]
+    },
+    "View": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Column"
+          }
+        },
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "schema",
+        "columns"
+      ]
+    }
+  }
+}

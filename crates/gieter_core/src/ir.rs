@@ -1,9 +1,12 @@
-#[derive(Debug)]
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Catalog {
     pub schemas: Vec<Schema>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Schema {
     pub name: String,
     pub tables: Vec<Table>,
@@ -26,7 +29,7 @@ impl Schema {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Table {
     pub name: String,
     pub schema: String,
@@ -36,7 +39,7 @@ pub struct Table {
     pub comment: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct View {
     pub name: String,
     pub schema: String,
@@ -44,7 +47,7 @@ pub struct View {
     pub comment: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Column {
     pub name: String,
     pub ty: ColumnType,
@@ -52,7 +55,8 @@ pub struct Column {
     pub comment: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ColumnType {
     Scalar(ScalarType),
     Array(Box<ColumnType>),
@@ -63,7 +67,8 @@ pub enum ColumnType {
 
 /// Backend-neutral scalar types. Each Source maps its native type names onto these;
 /// anything outside the common set falls through to Other(String).
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ScalarType {
     Boolean,
     Int16,   // smallint / int2
@@ -120,7 +125,7 @@ impl ScalarType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ForeignKey {
     pub name: String,
     pub columns: Vec<String>,
@@ -128,21 +133,21 @@ pub struct ForeignKey {
     pub ref_columns: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Enum {
     pub name: String,
     pub schema: String,
     pub values: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Composite {
     pub name: String,
     pub schema: String,
     pub fields: Vec<Column>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Domain {
     pub name: String,
     pub schema: String,
@@ -150,4 +155,61 @@ pub struct Domain {
     pub not_null: bool,
     pub default: Option<String>,
     // TODO: checks, engine specific?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample() -> Catalog {
+        Catalog {
+            schemas: vec![Schema {
+                name: "public".into(),
+                tables: vec![Table {
+                    name: "users".into(),
+                    schema: "public".into(),
+                    columns: vec![Column {
+                        name: "tags".into(),
+                        ty: ColumnType::Array(Box::new(ColumnType::Scalar(ScalarType::Text {
+                            max_len: None,
+                        }))),
+                        nullable: true,
+                        comment: Some("free text tags".into()),
+                    }],
+                    primary_key: vec!["id".into()],
+                    foreign_keys: vec![],
+                    comment: None,
+                }],
+                enums: vec![Enum {
+                    name: "mood".into(),
+                    schema: "public".into(),
+                    values: vec!["happy".into(), "sad".into()],
+                }],
+                views: vec![],
+                composites: vec![],
+                domains: vec![],
+            }],
+        }
+    }
+
+    #[test]
+    fn catalog_round_trips_through_json() {
+        let catalog = sample();
+        let json = serde_json::to_string(&catalog).unwrap();
+        let back: Catalog = serde_json::from_str(&json).unwrap();
+        assert_eq!(catalog, back);
+    }
+
+    #[test]
+    fn column_type_is_adjacently_tagged() {
+        let ty = ColumnType::Scalar(ScalarType::Text { max_len: None });
+        let value = serde_json::to_value(&ty).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "kind": "scalar",
+                "value": { "kind": "text", "value": { "max_len": null } }
+            })
+        );
+    }
 }

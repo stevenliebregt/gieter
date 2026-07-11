@@ -1,6 +1,8 @@
 use crate::Error;
 use crate::config::EmitterConfig;
 use crate::ir::Catalog;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -8,6 +10,8 @@ use std::path::PathBuf;
 pub enum EmitError {
     #[error("invalid options for emitter '{emitter}': {message}")]
     Options { emitter: String, message: String },
+    #[error("external plugin error: {0}")]
+    External(String),
 }
 
 #[derive(Debug)]
@@ -16,7 +20,7 @@ pub struct EmitterOutput {
     pub warnings: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct GeneratedFile {
     pub path: PathBuf,
     pub contents: String,

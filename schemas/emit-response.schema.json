@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EmitResponse",
+  "type": "object",
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/GeneratedFile"
+      }
+    },
+    "ir_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "ir_version",
+    "files",
+    "warnings"
+  ],
+  "$defs": {
+    "GeneratedFile": {
+      "type": "object",
+      "properties": {
+        "contents": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "contents"
+      ]
+    }
+  }
+}

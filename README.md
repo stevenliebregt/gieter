@@ -25,6 +25,7 @@ Today it ships a PostgreSQL source and a TypeScript emitter.
 - **Scalar type overrides** with automatic import hoisting.
 - **Flexible file layout**; split kinds across files or emit everything into one.
 - **Extensible by design**; sources and emitters are just crates implementing a `gieter_core` trait.
+- **Language-agnostic plugins**; an external process can act as a source or emitter by exchanging the schema IR as JSON over stdin/stdout, so a plugin can be written in any language.
 
 ## Missing features
 
@@ -33,7 +34,6 @@ Things that are currently not supported by **gieter** but are planned are:
 - **Python emitter**.
 - **Zod emitter**.
 - **Rust emitter**.
-- **Plugin system** so you can create external schema sources and emitters, then load them via config options.
 
 ## Install
 
@@ -77,14 +77,49 @@ See [`examples/`](crates/emitters/gieter_typescript/examples) for a fully-annota
 
 ## Extending gieter
 
-Everything hangs off [`gieter_core`](crates/gieter_core), which defines the schema IR plus the `Source` and `Emitter` traits. To target a new language or database, depend on it directly:
+There are two ways to add a source or emitter: in-process in Rust, or an external process in any language.
+
+### In-process (Rust)
+
+Everything hangs off [`gieter_core`](crates/gieter_core), which defines the schema IR plus the `Source` and `Emitter` traits. Depend on it, implement the trait, and register a factory in your own binary alongside the built-ins:
 
 ```toml
 [dependencies]
-gieter_core = "0.1"
+gieter_core = "<version>"
 ```
 
-Implement `Emitter` (or `Source`), and register it with the pipeline.
+```rust
+let mut sources = SourceRegistry::default();
+sources.register("my-db", my_crate::factory);
+```
+
+### External process (any language)
+
+An external process can be a source or emitter without any Rust. gieter runs the command you configure and exchanges the schema IR as JSON over the process's stdin and stdout, so the plugin can be written in Python, Node, Go, or anything that reads stdin and writes stdout. The `command` is an argv array, so it works the same across platforms.
+
+```toml
+[source]
+type = "external"
+command = ["python3", "introspect.py"]
+schemas = ["public"]
+
+[[emitter]]
+type = "external"
+command = ["node", "emit.js"]
+out_dir = "generated"
+```
+
+- A **source** receives a `SourceRequest` (`{ ir_version, schemas, options }`) on stdin and writes a `SourceResponse` (`{ ir_version, catalog }`) to stdout.
+- An **emitter** receives an `EmitRequest` (`{ ir_version, catalog, options }`) and writes an `EmitResponse` (`{ ir_version, files, warnings }`).
+
+Every key in the config block except `command` is forwarded to the plugin as its `options`. Print the exact JSON Schema for any message so you can generate types for your plugin:
+
+```sh
+gieter schema source-request
+gieter schema emit-response
+```
+
+The `ir_version` field guards the contract: if a plugin speaks a version gieter does not expect, gieter stops with a clear message instead of misreading the data.
 
 ## License
 

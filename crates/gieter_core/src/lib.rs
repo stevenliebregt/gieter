@@ -3,6 +3,7 @@ use crate::source::SourceError;
 
 pub mod config;
 pub mod emitter;
+pub mod external;
 pub mod ir;
 pub mod pipeline;
 pub mod source;

@@ -11,6 +11,8 @@ pub enum SourceError {
     Query(String),
     #[error("invalid source configuration: {0}")]
     Config(String),
+    #[error("external plugin error: {0}")]
+    External(String),
 }
 
 pub trait Source {

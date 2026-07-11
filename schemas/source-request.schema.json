@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SourceRequest",
+  "type": "object",
+  "properties": {
+    "ir_version": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "options": true,
+    "schemas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "ir_version",
+    "options",
+    "schemas"
+  ]
+}
