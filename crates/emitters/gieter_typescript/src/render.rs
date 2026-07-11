@@ -1,10 +1,9 @@
-use crate::TypescriptEmitter;
 use crate::brand::Brands;
 use crate::naming::{enum_member, object_key, property_name};
 use crate::options::{EnumStyle, NullStyle, Options, Output, TypeStyle};
 use crate::typemap;
 use convert_case::{Case, Casing};
-use gieter_core::emitter::{EmitError, Emitter, EmitterOutput, GeneratedFile};
+use gieter_core::emitter::{EmitError, EmitterOutput, GeneratedFile};
 use gieter_core::ir::{Catalog, Column, ColumnType, Enum, ForeignKey};
 use gieter_core::writer::Writer;
 use std::collections::{BTreeMap, BTreeSet};
@@ -138,7 +137,7 @@ fn target_file<'a>(output: &'a Output, kind: &str) -> Result<&'a str, EmitError>
             .or_else(|| map.get("default"))
             .map(String::as_str)
             .ok_or_else(|| EmitError::Options {
-                emitter: TypescriptEmitter.name().into(),
+                emitter: "typescript".to_string(),
                 message: format!("no output file for kind '{kind}'; map it or add a `default`"),
             }),
     }

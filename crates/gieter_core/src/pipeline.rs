@@ -1,36 +1,9 @@
 use crate::Error;
 use crate::config::Config;
-use crate::emitter::Emitter;
+use crate::emitter::EmitterRegistry;
 use crate::ir::Catalog;
 use crate::source::Source;
-use std::collections::HashMap;
 use std::path::PathBuf;
-
-pub struct Registry {
-    emitters: HashMap<String, Box<dyn Emitter>>,
-}
-
-impl Registry {
-    pub fn new() -> Self {
-        Registry {
-            emitters: HashMap::new(),
-        }
-    }
-
-    pub fn register(&mut self, emitter: Box<dyn Emitter>) {
-        self.emitters.insert(emitter.name().to_string(), emitter);
-    }
-
-    pub fn get(&self, name: &str) -> Option<&dyn Emitter> {
-        self.emitters.get(name).map(|boxed| boxed.as_ref())
-    }
-}
-
-impl Default for Registry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct RunReport {
@@ -38,17 +11,15 @@ pub struct RunReport {
     pub warnings: Vec<String>,
 }
 
-pub fn run(config: &Config, source: &dyn Source, registry: &Registry) -> Result<RunReport, Error> {
-    let mut catalog = source.introspect(&config.source.schemas)?;
-
-    filter_excluded(&mut catalog, &config.source.exclude_tables)?;
-
-    let mut report = RunReport::default();
-
+pub fn run(
+    config: &Config,
+    source: &dyn Source,
+    registry: &EmitterRegistry,
+) -> Result<RunReport, Error> {
+    // Build emitters, catches bad emitter config here
+    let mut emitters = Vec::with_capacity(config.emitters.len());
     for emitter_config in &config.emitters {
-        let emitter = registry
-            .get(&emitter_config.ty)
-            .ok_or_else(|| Error::UnknownEmitter(emitter_config.ty.clone()))?;
+        let emitter = registry.build(emitter_config)?;
 
         let out_dir = emitter_config
             .out_dir
@@ -61,7 +32,18 @@ pub fn run(config: &Config, source: &dyn Source, registry: &Registry) -> Result<
             config.base_dir.join(out_dir)
         };
 
-        let output = emitter.emit(&catalog, &emitter_config.options)?;
+        emitters.push((emitter, base_dir));
+    }
+
+    // Introspect the database
+    let mut catalog = source.introspect(&config.source.schemas)?;
+    filter_excluded(&mut catalog, &config.source.exclude_tables)?;
+
+    let mut report = RunReport::default();
+
+    // Run emitters
+    for (emitter, base_dir) in &emitters {
+        let output = emitter.emit(&catalog)?;
 
         for generated_file in output.files {
             let full_path = if generated_file.path.is_absolute() {

@@ -18,25 +18,15 @@ pub trait Source {
     fn introspect(&self, schemas: &[String]) -> Result<Catalog, SourceError>;
 }
 
-/// Builds a source from its connection options. The options are the source's own
-/// keys from the config (url, command, ...); scope (schemas) is passed later to
-/// [`Source::introspect`].
+/// Construct a source from the connection options.
 pub type SourceFactory = Box<dyn Fn(&toml::Table) -> Result<Box<dyn Source>, SourceError>>;
 
-/// Maps a config `type` onto the factory that builds that source. Registering a
-/// factory is the extension point: a custom binary can add an in-process source
-/// without forking, and the built-in `postgres` factory is registered the same way.
+#[derive(Default)]
 pub struct SourceRegistry {
     factories: HashMap<String, SourceFactory>,
 }
 
 impl SourceRegistry {
-    pub fn new() -> Self {
-        SourceRegistry {
-            factories: HashMap::new(),
-        }
-    }
-
     pub fn register(
         &mut self,
         ty: impl Into<String>,
@@ -51,11 +41,5 @@ impl SourceRegistry {
             .get(&config.ty)
             .ok_or_else(|| Error::UnknownSource(config.ty.clone()))?;
         Ok(factory(&config.options)?)
-    }
-}
-
-impl Default for SourceRegistry {
-    fn default() -> Self {
-        Self::new()
     }
 }

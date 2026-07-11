@@ -8,15 +8,18 @@ mod options;
 mod render;
 mod typemap;
 
-pub struct TypescriptEmitter;
+pub struct TypescriptEmitter {
+    options: Options,
+}
 
 impl Emitter for TypescriptEmitter {
-    fn name(&self) -> &str {
-        "typescript"
+    fn emit(&self, catalog: &Catalog) -> Result<EmitterOutput, EmitError> {
+        render::render(catalog, &self.options)
     }
+}
 
-    fn emit(&self, catalog: &Catalog, options: &toml::Table) -> Result<EmitterOutput, EmitError> {
-        let options = Options::from_table(options)?;
-        render::render(catalog, &options)
-    }
+pub fn factory(options: &toml::Table) -> Result<Box<dyn Emitter>, EmitError> {
+    Ok(Box::new(TypescriptEmitter {
+        options: Options::from_table(options)?,
+    }))
 }

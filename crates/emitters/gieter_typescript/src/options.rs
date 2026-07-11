@@ -1,5 +1,4 @@
-use crate::TypescriptEmitter;
-use gieter_core::emitter::{EmitError, Emitter};
+use gieter_core::emitter::EmitError;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -24,7 +23,7 @@ impl Options {
         toml::Value::Table(options.clone())
             .try_into()
             .map_err(|error: toml::de::Error| EmitError::Options {
-                emitter: TypescriptEmitter.name().into(),
+                emitter: "typescript".to_string(),
                 message: error.to_string(),
             })
     }
