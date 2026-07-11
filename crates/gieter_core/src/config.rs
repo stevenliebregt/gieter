@@ -43,15 +43,35 @@ impl Config {
     }
 
     pub fn resolve_env(&mut self) -> Result<(), ConfigError> {
-        // Source connection options (url, command, ...) are source-specific, so
-        // resolve env references on every string option generically.
-        for (_key, value) in self.source.options.iter_mut() {
-            if let toml::Value::String(raw) = value {
-                *raw = resolve_env_string(raw.as_str())?;
-            }
+        // Options are source/emitter-specific (url, command, credentials, ...), so
+        // resolve env references on every string, recursing into arrays and nested tables.
+        resolve_table(&mut self.source.options)?;
+        for emitter in &mut self.emitters {
+            resolve_table(&mut emitter.options)?;
         }
         Ok(())
     }
+}
+
+fn resolve_table(table: &mut toml::Table) -> Result<(), ConfigError> {
+    for (_key, value) in table.iter_mut() {
+        resolve_value(value)?;
+    }
+    Ok(())
+}
+
+fn resolve_value(value: &mut toml::Value) -> Result<(), ConfigError> {
+    match value {
+        toml::Value::String(raw) => *raw = resolve_env_string(raw.as_str())?,
+        toml::Value::Array(items) => {
+            for item in items.iter_mut() {
+                resolve_value(item)?;
+            }
+        }
+        toml::Value::Table(table) => resolve_table(table)?,
+        _ => {}
+    }
+    Ok(())
 }
 
 fn resolve_env_string(raw: &str) -> Result<String, ConfigError> {
@@ -94,4 +114,45 @@ pub struct EmitterConfig {
     pub out_dir: Option<PathBuf>,
     #[serde(flatten)]
     pub options: toml::Table,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_env_covers_emitter_options_and_array_entries() {
+        unsafe {
+            std::env::set_var("GIETER_TEST_SCRIPT", "run.py");
+            std::env::set_var("GIETER_TEST_TOKEN", "secret");
+        }
+
+        let mut config = Config::from_toml_str(
+            r#"
+[source]
+type = "external"
+command = ["python3", "env:GIETER_TEST_SCRIPT"]
+
+[[emitter]]
+type = "external"
+token = "env:GIETER_TEST_TOKEN"
+"#,
+        )
+        .unwrap();
+
+        config.resolve_env().unwrap();
+
+        let command = config
+            .source
+            .options
+            .get("command")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert_eq!(command[1].as_str(), Some("run.py"));
+        assert_eq!(
+            config.emitters[0].options.get("token").unwrap().as_str(),
+            Some("secret")
+        );
+    }
 }
