@@ -1,10 +1,12 @@
 use crate::external::{IR_VERSION, SourceRequest, SourceResponse, subprocess};
 use crate::ir::Catalog;
 use crate::source::{Source, SourceError};
+use std::time::Duration;
 
 pub struct ExternalSource {
     command: Vec<String>,
     options: serde_json::Value,
+    timeout: Duration,
 }
 
 impl Source for ExternalSource {
@@ -18,7 +20,8 @@ impl Source for ExternalSource {
         let stdin = serde_json::to_vec(&request)
             .map_err(|error| SourceError::External(error.to_string()))?;
 
-        let stdout = subprocess::run(&self.command, &stdin).map_err(SourceError::External)?;
+        let stdout =
+            subprocess::run(&self.command, &stdin, self.timeout).map_err(SourceError::External)?;
 
         let response: SourceResponse = serde_json::from_slice(&stdout).map_err(|error| {
             SourceError::External(format!(
@@ -39,8 +42,13 @@ impl Source for ExternalSource {
 
 pub fn factory(options: &toml::Table) -> Result<Box<dyn Source>, SourceError> {
     let command = subprocess::read_command(options).map_err(SourceError::Config)?;
+    let timeout = subprocess::read_timeout(options).map_err(SourceError::Config)?;
     let options = subprocess::forward_options(options).map_err(SourceError::External)?;
-    Ok(Box::new(ExternalSource { command, options }))
+    Ok(Box::new(ExternalSource {
+        command,
+        options,
+        timeout,
+    }))
 }
 
 #[cfg(test)]

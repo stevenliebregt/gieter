@@ -1,10 +1,12 @@
 use crate::emitter::{EmitError, Emitter, EmitterOutput};
 use crate::external::{EmitRequest, EmitResponse, IR_VERSION, subprocess};
 use crate::ir::Catalog;
+use std::time::Duration;
 
 pub struct ExternalEmitter {
     command: Vec<String>,
     options: serde_json::Value,
+    timeout: Duration,
 }
 
 impl Emitter for ExternalEmitter {
@@ -18,7 +20,8 @@ impl Emitter for ExternalEmitter {
         let stdin =
             serde_json::to_vec(&request).map_err(|error| EmitError::External(error.to_string()))?;
 
-        let stdout = subprocess::run(&self.command, &stdin).map_err(EmitError::External)?;
+        let stdout =
+            subprocess::run(&self.command, &stdin, self.timeout).map_err(EmitError::External)?;
 
         let response: EmitResponse = serde_json::from_slice(&stdout).map_err(|error| {
             EmitError::External(format!(
@@ -45,8 +48,17 @@ pub fn factory(options: &toml::Table) -> Result<Box<dyn Emitter>, EmitError> {
         emitter: "external".into(),
         message,
     })?;
+    let timeout = subprocess::read_timeout(options).map_err(|message| EmitError::Options {
+        emitter: "external".into(),
+        message,
+    })?;
     let options = subprocess::forward_options(options).map_err(EmitError::External)?;
-    Ok(Box::new(ExternalEmitter { command, options }))
+
+    Ok(Box::new(ExternalEmitter {
+        command,
+        options,
+        timeout,
+    }))
 }
 
 #[cfg(test)]

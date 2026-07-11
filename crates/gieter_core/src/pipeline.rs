@@ -129,12 +129,14 @@ mod tests {
     }
 
     fn qualified(catalog: &Catalog) -> Vec<String> {
-        let mut names = Vec::new();
+        let mut names = vec![];
+
         for schema in &catalog.schemas {
             for table in &schema.tables {
                 names.push(format!("{}.{}", schema.name, table.name));
             }
         }
+
         names
     }
 

@@ -54,13 +54,13 @@ pub fn render(catalog: &Catalog, options: &Options) -> Result<EmitterOutput, Emi
                 &mut files,
                 file,
                 render_enum(enum_definition, options),
-                Vec::new(),
+                vec![],
             );
         }
 
         for composite in &schema.composites {
             let file = target_file(&options.output, "composites")?;
-            let mut imports = Vec::new();
+            let mut imports = vec![];
             let name = composite.name.to_case(Case::Pascal);
             let declaration =
                 render_object(&name, &composite.fields, &None, options, &mut imports, None);
@@ -69,7 +69,7 @@ pub fn render(catalog: &Catalog, options: &Options) -> Result<EmitterOutput, Emi
 
         for domain in &schema.domains {
             let file = target_file(&options.output, "domains")?;
-            let mut imports = Vec::new();
+            let mut imports = vec![];
             let base_ts = column_ts(&domain.base, options, &mut imports);
             let name = domain.name.to_case(Case::Pascal);
             push(&mut files, file, render_brand(&name, &base_ts), imports);
@@ -77,7 +77,7 @@ pub fn render(catalog: &Catalog, options: &Options) -> Result<EmitterOutput, Emi
 
         for table in &schema.tables {
             let file = target_file(&options.output, "tables")?;
-            let mut imports = Vec::new();
+            let mut imports = vec![];
             let name = table.name.to_case(Case::Pascal);
             let context = TableContext {
                 brands: &brands,
@@ -101,7 +101,7 @@ pub fn render(catalog: &Catalog, options: &Options) -> Result<EmitterOutput, Emi
 
         for view in &schema.views {
             let file = target_file(&options.output, "views")?;
-            let mut imports = Vec::new();
+            let mut imports = vec![];
             let name = view.name.to_case(Case::Pascal);
             let declaration = render_object(
                 &name,
@@ -125,7 +125,7 @@ pub fn render(catalog: &Catalog, options: &Options) -> Result<EmitterOutput, Emi
 
     Ok(EmitterOutput {
         files,
-        warnings: Vec::new(),
+        warnings: vec![],
     })
 }
 
@@ -180,7 +180,7 @@ fn render_column(
     writer: &mut Writer,
     table: Option<&TableContext>,
 ) {
-    let mut doc = Vec::new();
+    let mut doc = vec![];
 
     if options.comments
         && let Some(text) = &column.comment

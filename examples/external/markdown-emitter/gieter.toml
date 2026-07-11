@@ -4,6 +4,7 @@
 [source]
 type = "external"
 command = ["python3", "fake_source.py"]
+timeout = 60 # would kill the introspection if it took more than 60 seconds
 schemas = ["public"]
 
 [[emitter]]

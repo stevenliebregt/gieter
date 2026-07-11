@@ -112,7 +112,7 @@ out_dir = "generated"
 - A **source** receives a `SourceRequest` (`{ ir_version, schemas, options }`) on stdin and writes a `SourceResponse` (`{ ir_version, catalog }`) to stdout.
 - An **emitter** receives an `EmitRequest` (`{ ir_version, catalog, options }`) and writes an `EmitResponse` (`{ ir_version, files, warnings }`).
 
-Every key in the config block except `command` is forwarded to the plugin as its `options`. Print the exact JSON Schema for any message so you can generate types for your plugin:
+Every key in the config block except the transport keys `command` and `timeout` is forwarded to the plugin as its `options`. A plugin that runs longer than `timeout` seconds (default 120) is stopped with an error. Print the exact JSON Schema for any message so you can generate types for your plugin:
 
 _See the `examples/external/markdown-emitter` example which has both an external source and an external emitter._
 
