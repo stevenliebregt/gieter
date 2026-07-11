@@ -1,0 +1,12 @@
+# A self-contained example: a fake external source produces a hardcoded catalog
+# that feeds the external Markdown emitter. No database required.
+
+[source]
+type = "external"
+command = ["python3", "fake_source.py"]
+schemas = ["public"]
+
+[[emitter]]
+type = "external"
+command = ["python3", "markdown_emitter.py"]
+out_dir = "generated"

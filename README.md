@@ -114,6 +114,8 @@ out_dir = "generated"
 
 Every key in the config block except `command` is forwarded to the plugin as its `options`. Print the exact JSON Schema for any message so you can generate types for your plugin:
 
+_See the `examples/external/markdown-emitter` example which has both an external source and an external emitter._
+
 ```sh
 gieter schema source-request
 gieter schema emit-response
