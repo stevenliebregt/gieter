@@ -1,74 +1,73 @@
 //! Integration tests that introspect a throwaway Dockerized Postgres.
-//! Requires Docker. Run with `cargo test -p gieter_postgres`.
+//! Requires Docker.
 
-use gieter_core::ir::{ColumnType, ScalarType};
+use gieter_core::ir::{Catalog, ColumnType, ScalarType};
 use gieter_core::source::Source;
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::testcontainers::Container;
 use testcontainers_modules::testcontainers::runners::SyncRunner;
 
-fn start_pg() -> (Container<Postgres>, String) {
-    let node = Postgres::default().start().unwrap();
-    let port = node.get_host_port_ipv4(5432).unwrap();
+/// Runs introspection against a throwaway Postgres seeded with `setup_query` (use it
+/// to create the tables, types, etc. under test). The returned `Container` guard tears
+/// the database down when dropped, so keep it bound for the life of the test.
+fn introspect_with(setup_query: &str, schemas: &[&str]) -> (Container<Postgres>, Catalog) {
+    let container = Postgres::default().start().unwrap();
+    let port = container.get_host_port_ipv4(5432).unwrap();
     let url = format!("postgres://postgres:postgres@127.0.0.1:{port}/postgres");
-    (node, url)
-}
 
-#[test]
-fn introspects_enum_types() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute("CREATE TYPE mood AS ENUM ('happy','sad');")
-        .unwrap();
+    let mut client = postgres::Client::connect(&url, postgres::NoTls).unwrap();
+    client.batch_execute(setup_query).unwrap();
 
     let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+    let catalog = source
+        .introspect(
+            &schemas
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>(),
+        )
+        .unwrap();
+
+    (container, catalog)
+}
+
+/// Enum types surface with their values in definition order.
+#[test]
+fn introspects_enum_types() {
+    let (_container, catalog) =
+        introspect_with("CREATE TYPE mood AS ENUM ('happy','sad');", &["public"]);
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
 
     let mood = public.enums.iter().find(|e| e.name == "mood").unwrap();
     assert_eq!(mood.values, vec!["happy", "sad"]);
 }
 
+/// Table comments are captured.
 #[test]
 fn introspects_table_comments() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE TABLE books (id serial PRIMARY KEY);
-            COMMENT ON TABLE books IS 'a book';
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE TABLE books (id serial PRIMARY KEY);
+        COMMENT ON TABLE books IS 'a book';
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
 
     let books = public.tables.iter().find(|t| t.name == "books").unwrap();
     assert_eq!(books.comment.as_deref(), Some("a book"));
 }
 
+/// Array columns resolve to `Array`, for both scalar and enum element types.
 #[test]
 fn introspects_array_columns() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE TYPE mood AS ENUM ('happy','sad');
-            CREATE TABLE books (tags text[] NULL, moods mood[] NULL);
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE TYPE mood AS ENUM ('happy','sad');
+        CREATE TABLE books (tags text[] NULL, moods mood[] NULL);
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let books = public.tables.iter().find(|t| t.name == "books").unwrap();
 
@@ -92,22 +91,16 @@ fn introspects_array_columns() {
     );
 }
 
+/// A column typed as an enum resolves to an `Enum` reference.
 #[test]
 fn introspects_enum_reference_columns() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE TYPE mood AS ENUM ('happy','sad');
-            CREATE TABLE books (vibe mood NULL);
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE TYPE mood AS ENUM ('happy','sad');
+        CREATE TABLE books (vibe mood NULL);
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let books = public.tables.iter().find(|t| t.name == "books").unwrap();
 
@@ -121,25 +114,19 @@ fn introspects_enum_reference_columns() {
     );
 }
 
+/// Foreign keys carry their local columns, referenced table, and referenced columns.
 #[test]
 fn introspects_foreign_keys() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE TABLE authors (id serial PRIMARY KEY, name text NOT NULL);
-            CREATE TABLE books (
-                id serial PRIMARY KEY,
-                author_id int NOT NULL REFERENCES authors(id)
-            );
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE TABLE authors (id serial PRIMARY KEY, name text NOT NULL);
+        CREATE TABLE books (
+            id serial PRIMARY KEY,
+            author_id int NOT NULL REFERENCES authors(id)
+        );
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let books = public.tables.iter().find(|t| t.name == "books").unwrap();
 
@@ -153,22 +140,17 @@ fn introspects_foreign_keys() {
     );
 }
 
+/// Composite types surface with their fields, and a column of one resolves to a
+/// `Composite` reference.
 #[test]
 fn introspects_composite_types() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE TYPE address AS (street text, number int, zip varchar(10));
-            CREATE TABLE people (id serial PRIMARY KEY, home address NULL);
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE TYPE address AS (street text, number int, zip varchar(10));
+        CREATE TABLE people (id serial PRIMARY KEY, home address NULL);
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
 
     // Fields keep definition order and are always nullable.
@@ -194,23 +176,18 @@ fn introspects_composite_types() {
     );
 }
 
+/// Domains surface with their resolved base type, NOT NULL, and default, and a column
+/// of one resolves to a `Domain` reference.
 #[test]
 fn introspects_domain_types() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE DOMAIN email AS text CHECK (VALUE ~ '@');
-            CREATE DOMAIN positive AS int NOT NULL DEFAULT 1 CHECK (VALUE > 0);
-            CREATE TABLE people (id serial PRIMARY KEY, contact email NULL);
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE DOMAIN email AS text CHECK (VALUE ~ '@');
+        CREATE DOMAIN positive AS int NOT NULL DEFAULT 1 CHECK (VALUE > 0);
+        CREATE TABLE people (id serial PRIMARY KEY, contact email NULL);
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
 
     // Base type resolved; no NOT NULL.
@@ -243,65 +220,100 @@ fn introspects_domain_types() {
     );
 }
 
+/// Every defined `ScalarType` maps from its Postgres column type, including the cases where two SQL
+/// types collapse to one variant (json/jsonb, timestamp with and without a time zone) or carry a
+/// modifier (varchar length, numeric precision).
 #[test]
-fn introspects_scalar_column_types() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE TABLE metrics (
-                ratio numeric(10,2) NOT NULL,
-                token uuid NOT NULL,
-                recorded_at timestamptz NOT NULL
-            );
+fn introspects_all_scalar_base_types() {
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE TABLE scalars (
+            flag boolean,
+            i16 smallint,
+            i32 int,
+            i64 bigint,
+            f32 real,
+            f64 double precision,
+            dec numeric(10,2),
+            ch char(5),
+            txt text,
+            vch varchar(20),
+            uid uuid,
+            j json,
+            jb jsonb,
+            bin bytea,
+            d date,
+            t time,
+            ts timestamp,
+            tstz timestamptz
+        );
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
-    let metrics = public.tables.iter().find(|t| t.name == "metrics").unwrap();
+    let scalars = public.tables.iter().find(|t| t.name == "scalars").unwrap();
 
-    let ratio = metrics.columns.iter().find(|c| c.name == "ratio").unwrap();
-    assert_eq!(
-        ratio.ty,
-        ColumnType::Scalar(ScalarType::Decimal {
-            precision: Some(10),
-            scale: Some(2)
-        })
-    );
+    let expected = [
+        ("flag", ColumnType::Scalar(ScalarType::Boolean)),
+        ("i16", ColumnType::Scalar(ScalarType::Int16)),
+        ("i32", ColumnType::Scalar(ScalarType::Int32)),
+        ("i64", ColumnType::Scalar(ScalarType::Int64)),
+        ("f32", ColumnType::Scalar(ScalarType::Float32)),
+        ("f64", ColumnType::Scalar(ScalarType::Float64)),
+        (
+            "dec",
+            ColumnType::Scalar(ScalarType::Decimal {
+                precision: Some(10),
+                scale: Some(2),
+            }),
+        ),
+        ("ch", ColumnType::Scalar(ScalarType::Char { len: 5 })),
+        (
+            "txt",
+            ColumnType::Scalar(ScalarType::Text { max_len: None }),
+        ),
+        (
+            "vch",
+            ColumnType::Scalar(ScalarType::Text { max_len: Some(20) }),
+        ),
+        ("uid", ColumnType::Scalar(ScalarType::Uuid)),
+        ("j", ColumnType::Scalar(ScalarType::Json)),
+        ("jb", ColumnType::Scalar(ScalarType::Json)),
+        ("bin", ColumnType::Scalar(ScalarType::Bytes)),
+        ("d", ColumnType::Scalar(ScalarType::Date)),
+        (
+            "t",
+            ColumnType::Scalar(ScalarType::Time { precision: None }),
+        ),
+        (
+            "ts",
+            ColumnType::Scalar(ScalarType::Timestamp {
+                tz: false,
+                precision: None,
+            }),
+        ),
+        (
+            "tstz",
+            ColumnType::Scalar(ScalarType::Timestamp {
+                tz: true,
+                precision: None,
+            }),
+        ),
+    ];
 
-    let token = metrics.columns.iter().find(|c| c.name == "token").unwrap();
-    assert_eq!(token.ty, ColumnType::Scalar(ScalarType::Uuid));
-
-    let recorded_at = metrics
-        .columns
-        .iter()
-        .find(|c| c.name == "recorded_at")
-        .unwrap();
-    assert_eq!(
-        recorded_at.ty,
-        ColumnType::Scalar(ScalarType::Timestamp {
-            tz: true,
-            precision: None
-        })
-    );
+    for (name, ty) in expected {
+        let column = scalars.columns.iter().find(|c| c.name == name).unwrap();
+        assert_eq!(column.ty, ty, "column {name}");
+    }
 }
 
+/// Column nullability follows the NOT NULL constraint.
 #[test]
 fn introspects_column_nullability() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute("CREATE TABLE t (req int NOT NULL, opt int NULL);")
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+    let (_container, catalog) = introspect_with(
+        "CREATE TABLE t (req int NOT NULL, opt int NULL);",
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let t = public.tables.iter().find(|t| t.name == "t").unwrap();
 
@@ -311,74 +323,55 @@ fn introspects_column_nullability() {
     assert!(opt.nullable);
 }
 
+/// Primary key columns are captured.
 #[test]
 fn introspects_primary_keys() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute("CREATE TABLE metrics (id serial PRIMARY KEY, ratio numeric NOT NULL);")
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+    let (_container, catalog) = introspect_with(
+        "CREATE TABLE metrics (id serial PRIMARY KEY, ratio numeric NOT NULL);",
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let metrics = public.tables.iter().find(|t| t.name == "metrics").unwrap();
 
     assert_eq!(metrics.primary_key, vec!["id".to_string()]);
 }
 
+/// Columns keep their definition order rather than being sorted.
 #[test]
 fn preserves_column_definition_order() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE TABLE metrics (
-                id serial PRIMARY KEY,
-                ratio numeric(10,2) NOT NULL,
-                token uuid NOT NULL,
-                recorded_at timestamptz NOT NULL,
-                owner_id int NOT NULL
-            );
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE TABLE metrics (
+            id serial PRIMARY KEY,
+            ratio numeric(10,2) NOT NULL,
+            token uuid NOT NULL,
+            recorded_at timestamptz NOT NULL,
+            owner_id int NOT NULL
+        );
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source.introspect(&["public".into()]).unwrap();
+        &["public"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let metrics = public.tables.iter().find(|t| t.name == "metrics").unwrap();
 
-    // Columns keep their definition order rather than being sorted alphabetically.
     let names: Vec<&str> = metrics.columns.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(names, ["id", "ratio", "token", "recorded_at", "owner_id"]);
 }
 
+/// A foreign key that points into another schema resolves across schemas.
 #[test]
 fn introspects_cross_schema_foreign_keys() {
-    let (_node, url) = start_pg();
-
-    let mut admin = postgres::Client::connect(&url, postgres::NoTls).unwrap();
-    admin
-        .batch_execute(
-            r#"
-            CREATE SCHEMA auth;
-            CREATE TABLE auth.users (id serial PRIMARY KEY, email text NOT NULL);
-            CREATE TABLE metrics (
-                id serial PRIMARY KEY,
-                owner_id int NOT NULL REFERENCES auth.users(id)
-            );
+    let (_container, catalog) = introspect_with(
+        r#"
+        CREATE SCHEMA auth;
+        CREATE TABLE auth.users (id serial PRIMARY KEY, email text NOT NULL);
+        CREATE TABLE metrics (
+            id serial PRIMARY KEY,
+            owner_id int NOT NULL REFERENCES auth.users(id)
+        );
         "#,
-        )
-        .unwrap();
-
-    let source = gieter_postgres::PostgresSource::connect(&url).unwrap();
-    let catalog = source
-        .introspect(&["public".into(), "auth".into()])
-        .unwrap();
+        &["public", "auth"],
+    );
     let public = catalog.schemas.iter().find(|s| s.name == "public").unwrap();
     let metrics = public.tables.iter().find(|t| t.name == "metrics").unwrap();
 
