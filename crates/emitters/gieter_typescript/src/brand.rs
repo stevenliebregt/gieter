@@ -168,8 +168,7 @@ mod tests {
             schemas: vec![Schema {
                 name: "public".into(),
                 tables,
-                enums: vec![],
-                views: vec![],
+                ..Default::default()
             }],
         }
     }

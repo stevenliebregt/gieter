@@ -30,7 +30,6 @@ Today it ships a PostgreSQL source and a TypeScript emitter.
 
 Things that are currently not supported by **gieter** but are planned are:
 
-- **composite types** and **domain types** for PostgreSQL.
 - **Python emitter**.
 - **Zod emitter**.
 - **Rust emitter**.
@@ -55,7 +54,8 @@ cargo install --path crates/gieter
 Create a `gieter.toml`:
 
 ```toml
-[database]
+[source]
+type = "postgres"
 url = "postgres://user:password@localhost:5432/db"
 schemas = ["public"]
 

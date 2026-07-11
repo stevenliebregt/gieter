@@ -273,6 +273,7 @@ fn column_ts(ty: &ColumnType, options: &Options, imports: &mut Vec<String>) -> S
         }
         ColumnType::Array(inner) => format!("{}[]", column_ts(inner, options, imports)),
         ColumnType::Enum { name, .. } => name.to_case(Case::Pascal),
+        _ => todo!("Implement ty: {ty:?}"),
     }
 }
 
@@ -391,8 +392,7 @@ mod tests {
             schema: "public".into(),
             columns,
             primary_key: vec!["id".into()],
-            foreign_keys: vec![],
-            comment: None,
+            ..Default::default()
         }
     }
 
@@ -402,7 +402,7 @@ mod tests {
                 name: "public".into(),
                 tables,
                 enums,
-                views: vec![],
+                ..Default::default()
             }],
         }
     }

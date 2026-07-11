@@ -1,7 +1,7 @@
 use clap::Parser;
 use gieter_core::config::Config;
 use gieter_core::pipeline::{self, Registry, RunReport};
-use gieter_postgres::PostgresSource;
+use gieter_core::source::SourceRegistry;
 use gieter_typescript::TypescriptEmitter;
 use std::path::PathBuf;
 
@@ -40,10 +40,12 @@ fn run() -> Result<RunReport, Box<dyn std::error::Error>> {
     let mut config = Config::from_path(&cli.config)?;
     config.resolve_env()?;
 
-    let source = PostgresSource::connect(&config.database.url, config.database.schemas.clone())?;
+    let mut sources = SourceRegistry::new();
+    sources.register("postgres", gieter_postgres::factory);
+    let source = sources.build(&config.source)?;
 
     let mut registry = Registry::new();
     registry.register(Box::new(TypescriptEmitter));
 
-    Ok(pipeline::run(&config, &source, &registry)?)
+    Ok(pipeline::run(&config, source.as_ref(), &registry)?)
 }

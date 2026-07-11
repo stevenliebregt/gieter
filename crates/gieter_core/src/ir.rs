@@ -3,13 +3,14 @@ pub struct Catalog {
     pub schemas: Vec<Schema>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Schema {
     pub name: String,
     pub tables: Vec<Table>,
     pub enums: Vec<Enum>,
     pub views: Vec<View>,
-    // TODO: composite/domain types
+    pub composites: Vec<Composite>,
+    pub domains: Vec<Domain>,
 }
 
 impl Schema {
@@ -19,11 +20,13 @@ impl Schema {
             tables: vec![],
             enums: vec![],
             views: vec![],
+            composites: vec![],
+            domains: vec![],
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Table {
     pub name: String,
     pub schema: String,
@@ -54,7 +57,8 @@ pub enum ColumnType {
     Scalar(ScalarType),
     Array(Box<ColumnType>),
     Enum { schema: String, name: String },
-    // TODO: composite/domain types
+    Composite { schema: String, name: String },
+    Domain { schema: String, name: String },
 }
 
 /// Backend-neutral scalar types. Each Source maps its native type names onto these;
@@ -129,4 +133,21 @@ pub struct Enum {
     pub name: String,
     pub schema: String,
     pub values: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct Composite {
+    pub name: String,
+    pub schema: String,
+    pub fields: Vec<Column>,
+}
+
+#[derive(Debug)]
+pub struct Domain {
+    pub name: String,
+    pub schema: String,
+    pub base: ColumnType,
+    pub not_null: bool,
+    pub default: Option<String>,
+    // TODO: checks, engine specific?
 }

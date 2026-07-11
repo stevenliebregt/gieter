@@ -1,6 +1,7 @@
 # Full gieter config for the plain TypeScript emitter.
 
-[database]
+[source]
+type = "postgres"
 url = "env:DATABASE_URL"
 schemas = ["public", "auth"]
 exclude_tables = ["pgmigrations", "*_audit"]

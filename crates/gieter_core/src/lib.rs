@@ -16,6 +16,8 @@ pub enum Error {
     Emit(#[from] EmitError),
     #[error("unknown emitter name '{0}' (no emitter registered under that name)")]
     UnknownEmitter(String),
+    #[error("unknown source type '{0}' (no source registered under that name)")]
+    UnknownSource(String),
     #[error("failed to write '{path}': {source}")]
     Write {
         path: String,

@@ -1,6 +1,8 @@
-use crate::rows::{ColumnRow, EnumRow, ForeignKeyRow, FromRow, PrimaryKeyRow, RelationRow};
-use crate::types::column_type;
-use gieter_core::ir::{Catalog, Column, Enum, ForeignKey, Schema, Table, View};
+use crate::rows::{
+    ColumnRow, DomainRow, EnumRow, ForeignKeyRow, FromRow, PrimaryKeyRow, RelationRow,
+};
+use crate::types::{TypeInfo, column_type, resolve_type};
+use gieter_core::ir::{Catalog, Column, Composite, Domain, Enum, ForeignKey, Schema, Table, View};
 use gieter_core::source::{Source, SourceError};
 use postgres::{Client, NoTls};
 use std::cell::{RefCell, RefMut};
@@ -10,6 +12,8 @@ mod rows;
 mod types;
 
 const QUERY_COLUMNS: &str = include_str!("./queries/columns.sql");
+const QUERY_COMPOSITES: &str = include_str!("./queries/composites.sql");
+const QUERY_DOMAINS: &str = include_str!("./queries/domains.sql");
 const QUERY_ENUMS: &str = include_str!("./queries/enums.sql");
 const QUERY_FOREIGN_KEYS: &str = include_str!("./queries/foreign_keys.sql");
 const QUERY_PRIMARY_KEYS: &str = include_str!("./queries/primary_keys.sql");
@@ -17,36 +21,46 @@ const QUERY_RELATIONS: &str = include_str!("./queries/relations.sql");
 
 pub struct PostgresSource {
     client: RefCell<Client>,
-    schemas: Vec<String>,
 }
 
 impl PostgresSource {
-    pub fn connect(url: &str, schemas: Vec<String>) -> Result<Self, SourceError> {
+    pub fn connect(url: &str) -> Result<Self, SourceError> {
         let client =
             Client::connect(url, NoTls).map_err(|e| SourceError::Connect(e.to_string()))?;
 
         Ok(PostgresSource {
             client: RefCell::new(client),
-            schemas,
         })
     }
 }
 
+/// Builds a Postgres source from config options for a `SourceRegistry`. Expects a
+/// `url` string option.
+pub fn factory(options: &toml::Table) -> Result<Box<dyn Source>, SourceError> {
+    let url = options
+        .get("url")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| SourceError::Config("postgres source requires a 'url'".into()))?;
+    Ok(Box::new(PostgresSource::connect(url)?))
+}
+
 impl Source for PostgresSource {
-    fn introspect(&self) -> Result<Catalog, SourceError> {
+    fn introspect(&self, schemas: &[String]) -> Result<Catalog, SourceError> {
         let mut client = self.client.borrow_mut();
 
-        let columns: Vec<ColumnRow> = query(&mut client, QUERY_COLUMNS, &self.schemas)?;
-        let enums: Vec<EnumRow> = query(&mut client, QUERY_ENUMS, &self.schemas)?;
-        let foreign_keys: Vec<ForeignKeyRow> =
-            query(&mut client, QUERY_FOREIGN_KEYS, &self.schemas)?;
-        let primary_keys: Vec<PrimaryKeyRow> =
-            query(&mut client, QUERY_PRIMARY_KEYS, &self.schemas)?;
-        let relations: Vec<RelationRow> = query(&mut client, QUERY_RELATIONS, &self.schemas)?;
+        let columns: Vec<ColumnRow> = query(&mut client, QUERY_COLUMNS, schemas)?;
+        let composites: Vec<ColumnRow> = query(&mut client, QUERY_COMPOSITES, schemas)?;
+        let domains: Vec<DomainRow> = query(&mut client, QUERY_DOMAINS, schemas)?;
+        let enums: Vec<EnumRow> = query(&mut client, QUERY_ENUMS, schemas)?;
+        let foreign_keys: Vec<ForeignKeyRow> = query(&mut client, QUERY_FOREIGN_KEYS, schemas)?;
+        let primary_keys: Vec<PrimaryKeyRow> = query(&mut client, QUERY_PRIMARY_KEYS, schemas)?;
+        let relations: Vec<RelationRow> = query(&mut client, QUERY_RELATIONS, schemas)?;
 
         Ok(build_catalog(
             relations,
             columns,
+            composites,
+            domains,
             enums,
             foreign_keys,
             primary_keys,
@@ -58,6 +72,8 @@ impl Source for PostgresSource {
 fn build_catalog(
     relations: Vec<RelationRow>,
     columns: Vec<ColumnRow>,
+    composites: Vec<ColumnRow>,
+    domains: Vec<DomainRow>,
     enums: Vec<EnumRow>,
     foreign_keys: Vec<ForeignKeyRow>,
     primary_keys: Vec<PrimaryKeyRow>,
@@ -104,12 +120,28 @@ fn build_catalog(
             .enums = schema_enums;
     }
 
+    for (schema_name, schema_composites) in composites_by_schema(composites) {
+        schemas
+            .entry(schema_name.clone())
+            .or_insert_with(|| Schema::new(schema_name))
+            .composites = schema_composites;
+    }
+
+    for (schema_name, schema_domains) in domains_by_schema(domains) {
+        schemas
+            .entry(schema_name.clone())
+            .or_insert_with(|| Schema::new(schema_name))
+            .domains = schema_domains;
+    }
+
     let mut schemas: Vec<Schema> = schemas.into_values().collect();
     schemas.sort_by(|a, b| a.name.cmp(&b.name));
     for schema in &mut schemas {
         schema.tables.sort_by(|a, b| a.name.cmp(&b.name));
         schema.views.sort_by(|a, b| a.name.cmp(&b.name));
         schema.enums.sort_by(|a, b| a.name.cmp(&b.name));
+        schema.composites.sort_by(|a, b| a.name.cmp(&b.name));
+        schema.domains.sort_by(|a, b| a.name.cmp(&b.name));
         for table in &mut schema.tables {
             table.foreign_keys.sort_by(|a, b| {
                 a.columns
@@ -174,6 +206,52 @@ fn enums_by_schema(enums: Vec<EnumRow>) -> HashMap<String, Vec<Enum>> {
     }
 
     enums_by_table
+}
+
+/// Groups composite types by schema and identifies their shape.
+fn composites_by_schema(fields: Vec<ColumnRow>) -> HashMap<String, Vec<Composite>> {
+    let mut composites_by_schema: HashMap<String, Vec<Composite>> = HashMap::new();
+
+    for ((schema, name), fields) in columns_by_table(fields) {
+        composites_by_schema
+            .entry(schema.clone())
+            .or_default()
+            .push(Composite {
+                name,
+                schema,
+                fields,
+            });
+    }
+
+    composites_by_schema
+}
+
+/// Groups domains by schema and identifies their shape.
+fn domains_by_schema(domains: Vec<DomainRow>) -> HashMap<String, Vec<Domain>> {
+    let mut domains_by_schema: HashMap<String, Vec<Domain>> = HashMap::new();
+
+    for domain in domains {
+        let base = resolve_type(&TypeInfo {
+            udt: &domain.base_udt,
+            typtype: &domain.base_typtype,
+            typmod: domain.base_typmod,
+            elem_udt: domain.base_elem_udt.as_deref(),
+            elem_typtype: domain.base_elem_typtype.as_deref(),
+            type_schema: &domain.base_type_schema,
+        });
+        domains_by_schema
+            .entry(domain.schema.clone())
+            .or_default()
+            .push(Domain {
+                name: domain.name,
+                schema: domain.schema,
+                base,
+                not_null: domain.not_null,
+                default: domain.default,
+            });
+    }
+
+    domains_by_schema
 }
 
 /// Groups primary-key columns by (schema, table). Each table has at most one primary key.

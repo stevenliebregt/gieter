@@ -13,6 +13,7 @@ categories = ["development-tools"]
 [dependencies]
 gieter_core = { path = "../../gieter_core", version = "0.1.0" }
 postgres = { workspace = true }
+toml = { workspace = true }
 
 [dev-dependencies]
 testcontainers = { workspace = true }

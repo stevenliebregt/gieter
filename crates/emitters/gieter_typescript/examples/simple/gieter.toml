@@ -1,7 +1,8 @@
 # Minimal gieter config for the plain TypeScript emitter.
 # Everything not set here uses the emitter's defaults.
 
-[database]
+[source]
+type = "postgres"
 url = "postgres://user:password@localhost:5432/app"
 schemas = ["public"]
 

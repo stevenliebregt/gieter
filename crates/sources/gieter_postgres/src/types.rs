@@ -1,37 +1,68 @@
 use crate::rows::ColumnRow;
 use gieter_core::ir::{ColumnType, ScalarType};
 
+/// Base type info for both table columns and domain base types.
+pub(crate) struct TypeInfo<'a> {
+    pub(crate) udt: &'a str,
+    pub(crate) typtype: &'a str,
+    pub(crate) typmod: i32,
+    pub(crate) elem_udt: Option<&'a str>,
+    pub(crate) elem_typtype: Option<&'a str>,
+    pub(crate) type_schema: &'a str,
+}
+
 pub(crate) fn column_type(column: &ColumnRow) -> ColumnType {
-    // Check if it is an enum
-    if column.typtype == "e" {
-        return ColumnType::Enum {
-            schema: column.type_schema.clone(),
-            name: column.udt.clone(),
-        };
+    resolve_type(&TypeInfo {
+        udt: &column.udt,
+        typtype: &column.typtype,
+        typmod: column.typmod,
+        elem_udt: column.elem_udt.as_deref(),
+        elem_typtype: column.elem_typtype.as_deref(),
+        type_schema: &column.type_schema,
+    })
+}
+
+pub(crate) fn resolve_type(info: &TypeInfo) -> ColumnType {
+    // A named type reference (enum, composite, domain) resolves directly.
+    if let Some(named) = named_type(info.typtype, info.type_schema, info.udt) {
+        return named;
     }
 
     // Check if it is an array, in postgres that is identifiable by the _ prefix
-    if column.udt.starts_with('_') {
-        return ColumnType::Array(Box::new(element_type(column)));
+    if info.udt.starts_with('_') {
+        return ColumnType::Array(Box::new(element_type(info)));
     }
 
     // Fall back to normal scalar type
-    ColumnType::Scalar(scalar_from(&column.udt, column.typmod))
+    ColumnType::Scalar(scalar_from(info.udt, info.typmod))
 }
 
-fn element_type(column: &ColumnRow) -> ColumnType {
-    let elem_udt = column.elem_udt.as_deref().unwrap_or_default();
+fn element_type(info: &TypeInfo) -> ColumnType {
+    let elem_udt = info.elem_udt.unwrap_or_default();
+    let elem_typtype = info.elem_typtype.unwrap_or_default();
 
-    // Check if the array inner type is an enum
-    if column.elem_typtype.as_deref() == Some("e") {
-        return ColumnType::Enum {
-            schema: column.type_schema.clone(),
-            name: elem_udt.to_string(),
-        };
+    // A named element type (enum, composite, domain) resolves directly. The array
+    // type shares its namespace with the element, so type_schema applies to both.
+    if let Some(named) = named_type(elem_typtype, info.type_schema, elem_udt) {
+        return named;
     }
 
     // Fall back to normal scalar type
-    ColumnType::Scalar(scalar_from(elem_udt, column.typmod))
+    ColumnType::Scalar(scalar_from(elem_udt, info.typmod))
+}
+
+/// Maps a pg_type `typtype` onto the matching named-type reference, or `None` for
+/// base types that need scalar mapping instead. `'e'`=enum, `'c'`=composite,
+/// `'d'`=domain.
+fn named_type(typtype: &str, schema: &str, name: &str) -> Option<ColumnType> {
+    let schema = schema.to_string();
+    let name = name.to_string();
+    match typtype {
+        "e" => Some(ColumnType::Enum { schema, name }),
+        "c" => Some(ColumnType::Composite { schema, name }),
+        "d" => Some(ColumnType::Domain { schema, name }),
+        _ => None,
+    }
 }
 
 fn scalar_from(udt: &str, typmod: i32) -> ScalarType {
@@ -238,6 +269,45 @@ mod tests {
                 schema: "auth".into(),
                 name: "mood".into()
             }
+        );
+    }
+
+    #[test]
+    fn resolves_a_composite_reference() {
+        assert_eq!(
+            column_type(&column("address", "c", None, None, "public")),
+            ColumnType::Composite {
+                schema: "public".into(),
+                name: "address".into()
+            }
+        );
+    }
+
+    #[test]
+    fn resolves_a_domain_reference() {
+        assert_eq!(
+            column_type(&column("email", "d", None, None, "public")),
+            ColumnType::Domain {
+                schema: "public".into(),
+                name: "email".into()
+            }
+        );
+    }
+
+    #[test]
+    fn resolves_a_composite_array() {
+        assert_eq!(
+            column_type(&column(
+                "_address",
+                "b",
+                Some("address"),
+                Some("c"),
+                "public"
+            )),
+            ColumnType::Array(Box::new(ColumnType::Composite {
+                schema: "public".into(),
+                name: "address".into()
+            }))
         );
     }
 

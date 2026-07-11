@@ -17,7 +17,7 @@ pub enum ConfigError {
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub database: DatabaseConfig,
+    pub source: SourceConfig,
     #[serde(default, rename = "emitter")]
     pub emitters: Vec<EmitterConfig>,
     /// Directory the config was loaded from; relative output dirs resolve against it.
@@ -43,7 +43,13 @@ impl Config {
     }
 
     pub fn resolve_env(&mut self) -> Result<(), ConfigError> {
-        self.database.url = resolve_env_string(&self.database.url)?;
+        // Source connection options (url, command, ...) are source-specific, so
+        // resolve env references on every string option generically.
+        for (_key, value) in self.source.options.iter_mut() {
+            if let toml::Value::String(raw) = value {
+                *raw = resolve_env_string(raw.as_str())?;
+            }
+        }
         Ok(())
     }
 }
@@ -62,12 +68,18 @@ fn resolve_env_string(raw: &str) -> Result<String, ConfigError> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DatabaseConfig {
-    pub url: String,
+pub struct SourceConfig {
+    /// Selects which registered source builds this catalog (e.g. "postgres").
+    #[serde(rename = "type")]
+    pub ty: String,
     #[serde(default = "default_schemas")]
     pub schemas: Vec<String>,
     #[serde(default)]
     pub exclude_tables: Vec<String>,
+    /// Source-specific connection options (url, command, ...). Handed to the
+    /// source's factory in the registry.
+    #[serde(flatten)]
+    pub options: toml::Table,
 }
 
 fn default_schemas() -> Vec<String> {

@@ -39,9 +39,9 @@ pub struct RunReport {
 }
 
 pub fn run(config: &Config, source: &dyn Source, registry: &Registry) -> Result<RunReport, Error> {
-    let mut catalog = source.introspect()?;
+    let mut catalog = source.introspect(&config.source.schemas)?;
 
-    filter_excluded(&mut catalog, &config.database.exclude_tables)?;
+    filter_excluded(&mut catalog, &config.source.exclude_tables)?;
 
     let mut report = RunReport::default();
 
@@ -125,11 +125,7 @@ mod tests {
     fn table(name: &str) -> Table {
         Table {
             name: name.into(),
-            schema: String::new(),
-            columns: vec![],
-            primary_key: vec![],
-            foreign_keys: vec![],
-            comment: None,
+            ..Default::default()
         }
     }
 
@@ -139,14 +135,12 @@ mod tests {
                 Schema {
                     name: "public".into(),
                     tables: vec![table("user"), table("post")],
-                    enums: vec![],
-                    views: vec![],
+                    ..Default::default()
                 },
                 Schema {
                     name: "auth".into(),
                     tables: vec![table("user")],
-                    enums: vec![],
-                    views: vec![],
+                    ..Default::default()
                 },
             ],
         }

@@ -76,6 +76,37 @@ impl FromRow for EnumRow {
 }
 
 #[derive(Debug)]
+pub(crate) struct DomainRow {
+    pub(crate) schema: String,
+    pub(crate) name: String,
+    pub(crate) not_null: bool,
+    pub(crate) default: Option<String>,
+    pub(crate) base_udt: String,
+    pub(crate) base_typtype: String,
+    pub(crate) base_typmod: i32,
+    pub(crate) base_elem_udt: Option<String>,
+    pub(crate) base_elem_typtype: Option<String>,
+    pub(crate) base_type_schema: String,
+}
+
+impl FromRow for DomainRow {
+    fn from_row(row: &Row) -> Self {
+        DomainRow {
+            schema: row.get("schema"),
+            name: row.get("name"),
+            not_null: row.get("not_null"),
+            default: row.get("default"),
+            base_udt: row.get("base_udt"),
+            base_typtype: row.get("base_typtype"),
+            base_typmod: row.get("base_typmod"),
+            base_elem_udt: row.get("base_elem_udt"),
+            base_elem_typtype: row.get("base_elem_typtype"),
+            base_type_schema: row.get("base_type_schema"),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct ForeignKeyRow {
     pub(crate) schema: String,
     pub(crate) table_name: String,

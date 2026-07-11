@@ -765,6 +765,7 @@ dependencies = [
  "postgres",
  "testcontainers",
  "testcontainers-modules",
+ "toml",
 ]
 
 [[package]]
