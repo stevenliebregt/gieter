@@ -1,8 +1,9 @@
 use gieter_core::emitter::EmitError;
+use gieter_emit::brand::BrandConfig;
+use gieter_emit::output::Output;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
-// TODO: some of these options might be shared with other languages, and could live in some base options
 #[derive(Debug, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Options {
@@ -13,7 +14,7 @@ pub struct Options {
     pub comments: bool,
     pub key_comments: bool,
     pub indent: String,
-    pub brand: BrandOptions,
+    pub brand: BrandConfig,
     pub types: BTreeMap<String, TypeOverride>,
     pub output: Output,
 }
@@ -39,9 +40,9 @@ impl Default for Options {
             comments: true,
             key_comments: true,
             indent: "  ".into(),
-            brand: BrandOptions::default(),
+            brand: BrandConfig::default(),
             types: BTreeMap::new(),
-            output: Output::default(),
+            output: Output::Single("index.ts".into()),
         }
     }
 }
@@ -80,33 +81,11 @@ pub enum NullStyle {
     Optional,
 }
 
-#[derive(Debug, PartialEq, Default, Deserialize)]
-#[serde(default)]
-pub struct BrandOptions {
-    pub enabled: bool,
-    pub extra: Vec<String>,
-}
-
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct TypeOverride {
     pub ts: String,
     #[serde(default)]
     pub import: Option<String>,
-}
-
-/// Either one file for every kind, or a map of kind -> filename (kinds sharing a
-/// filename combine, `default` catches unmapped kinds).
-#[derive(Debug, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum Output {
-    Single(String),
-    Split(BTreeMap<String, String>),
-}
-
-impl Default for Output {
-    fn default() -> Self {
-        Output::Single("index.ts".into())
-    }
 }
 
 #[cfg(test)]
@@ -187,12 +166,9 @@ mod tests {
         "#,
         )
         .output;
-        let Output::Split(map) = output else {
-            panic!("expected a split map");
-        };
-        assert_eq!(map["brands"], "shared.ts");
-        assert_eq!(map["enums"], "shared.ts");
-        assert_eq!(map["default"], "db.ts");
+        // The split-map internals (per-kind lookup, `default` fallback) are owned and
+        // tested by gieter_emit; here we only confirm the TS Options round-trips it.
+        assert!(matches!(output, Output::Split(_)));
     }
 
     #[test]

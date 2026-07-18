@@ -3,7 +3,7 @@ members = [
     "crates/gieter",
     "crates/gieter_core",
     "crates/sources/gieter_postgres",
-    "crates/emitters/gieter_typescript",
+    "crates/emitters/gieter_typescript", "crates/gieter_emit",
 ]
 resolver = "2"
 

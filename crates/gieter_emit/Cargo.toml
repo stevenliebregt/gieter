@@ -1,0 +1,20 @@
+[package]
+name = "gieter_emit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Shared code for building emitters for gieter"
+readme = "../../README.md"
+keywords = ["codegen", "schema", "emit"]
+categories = ["development-tools"]
+
+[dependencies]
+gieter_core = { path = "../gieter_core", version = "0.3.0" }
+serde.workspace = true
+convert_case.workspace = true
+
+[dev-dependencies]
+toml.workspace = true

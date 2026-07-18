@@ -35,7 +35,7 @@ impl Writer {
     /// # Example
     ///
     /// ```
-    /// use gieter_core::writer::Writer;
+    /// use gieter_emit::writer::Writer;
     ///
     /// let mut writer = Writer::new();
     /// writer.block("interface User {", "}", |writer| {

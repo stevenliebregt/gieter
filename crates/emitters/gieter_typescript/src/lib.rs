@@ -2,7 +2,6 @@ use crate::options::Options;
 use gieter_core::emitter::{EmitError, Emitter, EmitterOutput};
 use gieter_core::ir::Catalog;
 
-mod brand;
 mod naming;
 mod options;
 mod render;

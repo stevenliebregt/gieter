@@ -760,6 +760,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gieter_emit"
+version = "0.3.0"
+dependencies = [
+ "convert_case",
+ "gieter_core",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "gieter_postgres"
 version = "0.3.0"
 dependencies = [
@@ -776,6 +786,7 @@ version = "0.3.0"
 dependencies = [
  "convert_case",
  "gieter_core",
+ "gieter_emit",
  "serde",
  "toml",
 ]
