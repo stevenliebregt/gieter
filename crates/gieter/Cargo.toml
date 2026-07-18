@@ -16,7 +16,7 @@ name = "gieter"
 path = "src/main.rs"
 
 [dependencies]
-gieter_core = { path = "../gieter_core", version = "0.3.0" }
-gieter_postgres = { path = "../sources/gieter_postgres", version = "0.3.0" }
-gieter_typescript = { path = "../emitters/gieter_typescript", version = "0.3.0" }
+gieter_core = { path = "../gieter_core", version = "0.3.1" }
+gieter_postgres = { path = "../sources/gieter_postgres", version = "0.3.1" }
+gieter_typescript = { path = "../emitters/gieter_typescript", version = "0.3.1" }
 clap.workspace = true

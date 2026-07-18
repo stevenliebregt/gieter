@@ -11,8 +11,8 @@ keywords = ["codegen", "schema", "typescript"]
 categories = ["development-tools"]
 
 [dependencies]
-gieter_core = { path = "../../gieter_core", version = "0.3.0" }
-gieter_emit = { path = "../../gieter_emit", version = "0.3.0" }
+gieter_core = { path = "../../gieter_core", version = "0.3.1" }
+gieter_emit = { path = "../../gieter_emit", version = "0.3.1" }
 toml.workspace = true
 serde.workspace = true
 convert_case.workspace = true
